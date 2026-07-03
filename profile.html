@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人中心-我的酒柜</title>
+    <link rel="stylesheet" href="./css/global.css">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="min-h-screen font-sans antialiased">
+    <main class="page-container">
+<div class="status-bar-placeholder"></div>
+
+<div id="main-content" style="min-height: calc(100vh - 44px - 80px); padding-bottom: 80px;">
+
+  <!-- User Profile Header -->
+  <div style="padding: 20px var(--spacing-lg) 0;">
+    <div style="display: flex; align-items: center; gap: var(--spacing-lg);">
+      <!-- Avatar -->
+      <div id="profile-avatar" style="width: 64px; height: 64px; border-radius: var(--radius-full); border: 2.5px solid var(--color-primary); background: var(--color-background-muted); display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden;">
+        <i data-lucide="user" style="width: 32px; height: 32px; color: var(--color-primary);"></i>
+      </div>
+      <!-- Name & Info -->
+      <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;">
+        <span id="user-name" style="font-size: var(--text-lg); font-weight: var(--font-medium); color: var(--color-text-primary); line-height: var(--leading-tight);">酒友小陈</span>
+        <span id="user-email" style="font-size: var(--text-sm); color: var(--color-text-tertiary); line-height: var(--leading-normal);">chen@example.com</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Stats Card -->
+  <div id="quick-stats" style="margin: var(--spacing-xl) var(--spacing-lg) 0; background: var(--color-background-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--spacing-lg) 0; display: flex; align-items: center;">
+  </div>
+
+  <!-- Settings Groups -->
+  <div style="margin-top: var(--spacing-xl); padding: 0 var(--spacing-lg);">
+
+    <!-- 云同步 Group -->
+    <div style="background: var(--color-background-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: var(--spacing-xl);">
+      <div style="padding: var(--spacing-sm) var(--spacing-lg); font-size: var(--text-xs); color: var(--color-text-tertiary); font-weight: var(--font-medium); letter-spacing: 0.05em; display: flex; align-items: center; justify-content: space-between;">
+        <span>云同步 (Supabase)</span>
+        <span id="cloud-status-badge" style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--color-background-muted); color: var(--color-text-tertiary);">未配置</span>
+      </div>
+
+      <!-- 启用云同步开关 -->
+      <div id="cloud-toggle-row" style="display: flex; align-items: center; padding: 0 var(--spacing-lg); height: 52px; border-bottom: 1px solid var(--color-border-light); cursor: pointer; transition: background-color 150ms ease;">
+        <div style="width: 36px; height: 36px; border-radius: var(--radius-md); background: rgba(62, 207, 142, 0.1); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: var(--spacing-md);">
+          <i data-lucide="cloud" style="width: 18px; height: 18px; color: #3ECF8E;"></i>
+        </div>
+        <span style="flex: 1; font-size: var(--text-base); color: var(--color-text-primary);">启用云同步</span>
+        <label style="position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer;" onclick="event.stopPropagation();">
+          <input type="checkbox" id="cloud-enabled-toggle" style="opacity: 0; width: 0; height: 0;">
+          <span id="cloud-toggle-slider" style="position: absolute; inset: 0; background: var(--color-border); border-radius: 12px; transition: 0.2s;"></span>
+          <span id="cloud-toggle-dot" style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.15);"></span>
+        </label>
+      </div>
+
+      <!-- Supabase URL -->
+      <div id="cloud-config-panel" style="display: none;">
+        <div id="cloud-saved-hint" style="display: none; padding: 6px var(--spacing-lg); background: rgba(62,207,142,0.08); font-size: 11px; color: #3ECF8E; display: flex; align-items: center; gap: 6px;">
+          <i data-lucide="check-circle" style="width: 14px; height: 14px;"></i>
+          <span>已保存配置，无需重复填写</span>
+        </div>
+        <div style="padding: var(--spacing-md) var(--spacing-lg); border-bottom: 1px solid var(--color-border-light);">
+          <label style="display: block; font-size: var(--text-xs); color: var(--color-text-tertiary); margin-bottom: var(--spacing-xs);">Supabase URL</label>
+          <input type="text" id="supabase-url-input" placeholder="https://xxxx.supabase.co" style="width: 100%; padding: 10px var(--spacing-md); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-sm); background: var(--color-background); color: var(--color-text-primary); outline: none; box-sizing: border-box;">
+        </div>
+        <!-- Supabase Anon Key -->
+        <div style="padding: var(--spacing-md) var(--spacing-lg); border-bottom: 1px solid var(--color-border-light);">
+          <label style="display: flex; justify-content: space-between; align-items: center; font-size: var(--text-xs); color: var(--color-text-tertiary); margin-bottom: var(--spacing-xs);">
+            <span>Supabase Anon Key</span>
+            <button type="button" id="btn-edit-key" style="display: none; font-size: 11px; color: var(--color-primary); background: none; border: none; cursor: pointer; padding: 0;">修改Key</button>
+          </label>
+          <input type="password" id="supabase-key-input" placeholder="eyJhbGciOi..." style="width: 100%; padding: 10px var(--spacing-md); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-sm); background: var(--color-background); color: var(--color-text-primary); outline: none; box-sizing: border-box;">
+          <div id="key-saved-hint" style="display: none; font-size: 11px; color: #3ECF8E; margin-top: 4px;">Key已保存，点击"修改Key"可更新</div>
+        </div>
+        <!-- 操作按钮 -->
+        <div style="padding: var(--spacing-md) var(--spacing-lg); display: flex; gap: var(--spacing-sm);">
+          <button id="btn-save-cloud-config" style="flex: 1; padding: 10px; background: var(--color-primary); color: white; border: none; border-radius: var(--radius-md); font-size: var(--text-sm); font-weight: var(--font-medium); cursor: pointer;">保存配置</button>
+          <button id="btn-sync-now" style="flex: 1; padding: 10px; background: var(--color-background-muted); color: var(--color-text-primary); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-sm); font-weight: var(--font-medium); cursor: pointer;">立即同步</button>
+        </div>
+        <!-- SQL 建表脚本提示 -->
+        <div style="padding: 0 var(--spacing-lg) var(--spacing-md);">
+          <details style="background: var(--color-primary-lightest, rgba(166,61,47,0.05)); border-radius: var(--radius-md); padding: var(--spacing-md); font-size: var(--text-xs); color: var(--color-text-secondary); line-height: 1.6;">
+            <summary style="font-weight: var(--font-medium); color: var(--color-primary); cursor: pointer;">首次使用建表SQL（点击展开）</summary>
+            <div style="margin-top: 6px;">在 Supabase SQL Editor 中执行：</div>
+            <pre id="sql-script" style="margin-top: 6px; padding: 8px; background: var(--color-background); border-radius: 6px; font-size: 11px; overflow-x: auto; white-space: pre-wrap; color: var(--color-text-primary);">CREATE TABLE IF NOT EXISTS app_data (
+  id TEXT PRIMARY KEY DEFAULT 'main',
+  data JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE app_data ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow anonymous read" ON app_data FOR SELECT USING (true);
+CREATE POLICY "Allow anonymous insert" ON app_data FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow anonymous update" ON app_data FOR UPDATE USING (true);</pre>
+            <button id="btn-copy-sql" style="margin-top: 6px; padding: 4px 10px; font-size: 11px; background: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: 4px; cursor: pointer; color: var(--color-text-secondary);">复制SQL</button>
+          </details>
+        </div>
+      </div>
+    </div>
+
+    <!-- 功能列表 Group -->
+    <div style="background: var(--color-background-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: var(--spacing-xl);">
+      <div style="padding: var(--spacing-sm) var(--spacing-lg); font-size: var(--text-xs); color: var(--color-text-tertiary); font-weight: var(--font-medium); letter-spacing: 0.05em;">功能</div>
+
+      <!-- 统计分析 -->
+      <a data-dom-id="row-stats" href="stats.html" style="display: flex; align-items: center; padding: 0 var(--spacing-lg); height: 48px; border-bottom: 1px solid var(--color-border-light); text-decoration: none; color: inherit; transition: background-color 150ms ease;">
+        <div style="width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--color-primary-lightest); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: var(--spacing-md);">
+          <i data-lucide="bar-chart-3" style="width: 18px; height: 18px; color: var(--color-primary);"></i>
+        </div>
+        <span style="flex: 1; font-size: var(--text-base); color: var(--color-text-primary);">统计分析</span>
+        <i data-lucide="chevron-right" style="width: 16px; height: 16px; color: var(--color-text-tertiary);"></i>
+      </a>
+
+      <!-- 数据导出 -->
+      <div data-dom-id="row-export" id="btn-export" style="display: flex; align-items: center; padding: 0 var(--spacing-lg); height: 48px; border-bottom: 1px solid var(--color-border-light); cursor: pointer; transition: background-color 150ms ease;">
+        <div style="width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--color-primary-lightest); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: var(--spacing-md);">
+          <i data-lucide="download" style="width: 18px; height: 18px; color: var(--color-primary);"></i>
+        </div>
+        <span style="flex: 1; font-size: var(--text-base); color: var(--color-text-primary);">数据导出</span>
+        <i data-lucide="chevron-right" style="width: 16px; height: 16px; color: var(--color-text-tertiary);"></i>
+      </div>
+
+      <!-- 数据导入 -->
+      <div data-dom-id="row-import" id="btn-import" style="display: flex; align-items: center; padding: 0 var(--spacing-lg); height: 48px; border-bottom: 1px solid var(--color-border-light); cursor: pointer; transition: background-color 150ms ease;">
+        <div style="width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--color-primary-lightest); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: var(--spacing-md);">
+          <i data-lucide="upload" style="width: 18px; height: 18px; color: var(--color-primary);"></i>
+        </div>
+        <span style="flex: 1; font-size: var(--text-base); color: var(--color-text-primary);">数据导入</span>
+        <i data-lucide="chevron-right" style="width: 16px; height: 16px; color: var(--color-text-tertiary);"></i>
+      </div>
+      <input type="file" id="import-file" accept=".json" style="display: none;">
+
+      <!-- 主题切换 -->
+      <div data-dom-id="row-theme" id="btn-theme" style="display: flex; align-items: center; padding: 0 var(--spacing-lg); height: 48px; border-bottom: 1px solid var(--color-border-light); cursor: pointer; transition: background-color 150ms ease;">
+        <div style="width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--color-primary-lightest); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: var(--spacing-md);">
+          <i data-lucide="moon" id="theme-icon" style="width: 18px; height: 18px; color: var(--color-primary);"></i>
+        </div>
+        <span style="flex: 1; font-size: var(--text-base); color: var(--color-text-primary);">主题切换</span>
+        <span id="theme-label" style="font-size: var(--text-sm); color: var(--color-text-tertiary); margin-right: var(--spacing-xs);">浅色</span>
+        <i data-lucide="chevron-right" style="width: 16px; height: 16px; color: var(--color-text-tertiary);"></i>
+      </div>
+
+      <!-- 关于 -->
+      <div data-dom-id="row-about" id="btn-about" style="display: flex; align-items: center; padding: 0 var(--spacing-lg); height: 48px; cursor: pointer; transition: background-color 150ms ease;">
+        <div style="width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--color-primary-lightest); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: var(--spacing-md);">
+          <i data-lucide="info" style="width: 18px; height: 18px; color: var(--color-primary);"></i>
+        </div>
+        <span style="flex: 1; font-size: var(--text-base); color: var(--color-text-primary);">关于</span>
+        <i data-lucide="chevron-right" style="width: 16px; height: 16px; color: var(--color-text-tertiary);"></i>
+      </div>
+    </div>
+
+    <!-- 账户 Group -->
+    <div style="background: var(--color-background-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: var(--spacing-xl);">
+      <div style="padding: var(--spacing-sm) var(--spacing-lg); font-size: var(--text-xs); color: var(--color-text-tertiary); font-weight: var(--font-medium); letter-spacing: 0.05em;">账户</div>
+
+      <!-- 退出登录 -->
+      <div data-dom-id="row-logout" id="btn-logout" style="display: flex; align-items: center; padding: 0 var(--spacing-lg); height: 48px; cursor: pointer; transition: background-color 150ms ease;">
+        <div style="width: 36px; height: 36px; border-radius: var(--radius-md); background: rgba(166, 61, 47, 0.1); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: var(--spacing-md);">
+          <i data-lucide="log-out" style="width: 18px; height: 18px; color: var(--state-error);"></i>
+        </div>
+        <span style="flex: 1; font-size: var(--text-base); color: var(--state-error);">退出登录</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- App Version Footer -->
+  <div style="text-align: center; padding: var(--spacing-xl) var(--spacing-lg) var(--spacing-3xl); font-size: var(--text-xs); color: var(--color-text-tertiary);">
+    我的酒柜 v1.0.0
+  </div>
+
+</div>
+
+    </main>
+    <script src="./js/datastore.js"></script>
+    <script src="./js/app.js"></script>
+    <script src="./js/ui.js"></script>
+    <script src="./js/onboarding.js?v=20260702f"></script>
+    <script>
+      (function() {
+        var data = WineCabinetApp.getData();
+        var user = data.user;
+
+        function renderUserInfo() {
+          var nameEl = document.getElementById('user-name');
+          var emailEl = document.getElementById('user-email');
+          var avatarEl = document.getElementById('profile-avatar');
+
+          if (nameEl) nameEl.textContent = (data.user && data.user.name) || '酒友';
+          if (emailEl) emailEl.textContent = user.email || '';
+
+          if (user.avatar && avatarEl) {
+            avatarEl.innerHTML = '<img src="' + user.avatar + '" alt="头像" style="width: 100%; height: 100%; object-fit: cover;">';
+          }
+        }
+
+        function renderQuickStats() {
+          var statsContainer = document.getElementById('quick-stats');
+          var stats = WineCabinetApp.getStats();
+          var tastingCount = data.tastingNotes ? data.tastingNotes.length : 0;
+          var wishlistCount = data.wishlist ? data.wishlist.length : 0;
+
+          var statItems = [
+            { label: '在库数', value: stats.totalCount, unit: '瓶', color: 'var(--color-text-primary)' },
+            { label: '已品鉴', value: tastingCount, unit: '次', color: 'var(--color-primary)' },
+            { label: '心愿单', value: wishlistCount, unit: '个', color: 'var(--color-text-primary)' }
+          ];
+
+          statsContainer.innerHTML = statItems.map(function(item, index) {
+            var isLast = index === statItems.length - 1;
+            var borderStyle = isLast ? '' : 'border-right: 1px solid var(--color-border);';
+            return '<div style="flex: 1; text-align: center; ' + borderStyle + '">' +
+              '<div style="font-size: var(--text-2xl); font-weight: var(--font-semibold); color: ' + item.color + '; font-variant-numeric: tabular-nums; line-height: var(--leading-tight);">' + item.value + '</div>' +
+              '<div style="font-size: var(--text-xs); color: var(--color-text-secondary); margin-top: var(--spacing-xs);">' + item.label + '(' + item.unit + ')</div>' +
+            '</div>';
+          }).join('');
+        }
+
+        function updateThemeLabel() {
+          var html = document.documentElement;
+          var isDark = html.classList.contains('dark');
+          var labelEl = document.getElementById('theme-label');
+          var iconEl = document.getElementById('theme-icon');
+          if (labelEl) {
+            labelEl.textContent = isDark ? '深色' : '浅色';
+          }
+          if (iconEl) {
+            iconEl.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+          }
+        }
+
+        function exportData() {
+          var jsonStr = WineCabinetApp.exportData();
+          var blob = new Blob([jsonStr], { type: 'application/json' });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = 'wine-cabinet-backup-' + new Date().toISOString().split('T')[0] + '.json';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          WineCabinetApp.showToast('数据导出成功', 'success');
+        }
+
+        function importData(file) {
+          var reader = new FileReader();
+          reader.onload = function(e) {
+            try {
+              var jsonStr = e.target.result;
+              var result = WineCabinetApp.importData(jsonStr);
+              WineCabinetApp.showToast(result.message, result.success ? 'success' : 'error');
+              if (result.success) {
+                setTimeout(function() {
+                  location.reload();
+                }, 1000);
+              }
+            } catch (err) {
+              WineCabinetApp.showToast('文件解析失败', 'error');
+            }
+          };
+          reader.readAsText(file);
+        }
+
+        function bindEvents() {
+          var themeBtn = document.getElementById('btn-theme');
+          if (themeBtn) {
+            themeBtn.addEventListener('click', function() {
+              WineCabinetApp.toggleTheme();
+              updateThemeLabel();
+              if (window.lucide) {
+                lucide.createIcons();
+              }
+            });
+          }
+
+          var exportBtn = document.getElementById('btn-export');
+          if (exportBtn) {
+            exportBtn.addEventListener('click', exportData);
+          }
+
+          var importBtn = document.getElementById('btn-import');
+          var importFile = document.getElementById('import-file');
+          if (importBtn && importFile) {
+            importBtn.addEventListener('click', function() {
+              importFile.click();
+            });
+            importFile.addEventListener('change', function(e) {
+              if (e.target.files && e.target.files[0]) {
+                importData(e.target.files[0]);
+              }
+            });
+          }
+
+          var aboutBtn = document.getElementById('btn-about');
+          if (aboutBtn) {
+            aboutBtn.addEventListener('click', function() {
+              WineCabinetApp.showToast('我的酒柜 v1.0.0', 'info');
+            });
+          }
+
+          var logoutBtn = document.getElementById('btn-logout');
+          if (logoutBtn) {
+            logoutBtn.addEventListener('click', async function() {
+              var confirmed = await WineCabinetApp.showConfirm({
+                title: '退出登录',
+                message: '确定要退出登录吗？您的数据仍然保存在本地',
+                type: 'info',
+                confirmText: '确定退出',
+                cancelText: '取消'
+              });
+              if (confirmed) {
+                if (typeof WineCabinetApp.logout === 'function') {
+                  WineCabinetApp.logout();
+                } else {
+                  localStorage.removeItem('wine_cabinet_data');
+                }
+                WineCabinetApp.showToast('已退出登录', 'info');
+                setTimeout(function() {
+                  location.href = 'home.html';
+                }, 800);
+              }
+            });
+          }
+
+          bindCloudEvents();
+        }
+
+        function updateCloudToggleUI(enabled) {
+          var slider = document.getElementById('cloud-toggle-slider');
+          var dot = document.getElementById('cloud-toggle-dot');
+          var panel = document.getElementById('cloud-config-panel');
+          if (enabled) {
+            slider.style.background = '#3ECF8E';
+            dot.style.left = '22px';
+          } else {
+            slider.style.background = 'var(--color-border)';
+            dot.style.left = '2px';
+          }
+          // 有保存的配置时，无论开关状态都显示配置面板
+          var cfg = DataStore.getConfig();
+          if (cfg.supabaseUrl || cfg.supabaseAnonKey) {
+            panel.style.display = 'block';
+          } else {
+            panel.style.display = enabled ? 'block' : 'none';
+          }
+        }
+
+        function updateCloudStatusBadge() {
+          var badge = document.getElementById('cloud-status-badge');
+          var cfg = DataStore.getConfig();
+          if (cfg.useCloud && cfg.supabaseUrl && cfg.supabaseAnonKey) {
+            if (DataStore.supabaseClient) {
+              badge.textContent = '已连接';
+              badge.style.background = 'rgba(62,207,142,0.15)';
+              badge.style.color = '#3ECF8E';
+            } else {
+              badge.textContent = '配置中';
+              badge.style.background = 'rgba(245,158,11,0.15)';
+              badge.style.color = '#F59E0B';
+            }
+          } else {
+            badge.textContent = '未配置';
+            badge.style.background = 'var(--color-background-muted)';
+            badge.style.color = 'var(--color-text-tertiary)';
+          }
+        }
+
+        function loadCloudConfigIntoForm() {
+          var cfg = DataStore.getConfig();
+          var urlInput = document.getElementById('supabase-url-input');
+          var keyInput = document.getElementById('supabase-key-input');
+          var toggle = document.getElementById('cloud-enabled-toggle');
+          var savedHint = document.getElementById('cloud-saved-hint');
+          var keySavedHint = document.getElementById('key-saved-hint');
+          var editKeyBtn = document.getElementById('btn-edit-key');
+          if (urlInput) urlInput.value = cfg.supabaseUrl || '';
+          var hasSavedKey = !!cfg.supabaseAnonKey;
+          if (keyInput) {
+            keyInput.value = hasSavedKey ? '********' : '';
+            keyInput.readOnly = hasSavedKey;
+          }
+          if (toggle) toggle.checked = cfg.useCloud;
+          // 显示已保存配置的提示
+          if (hasSavedKey || cfg.supabaseUrl) {
+            if (savedHint) savedHint.style.display = 'flex';
+            if (keySavedHint) keySavedHint.style.display = hasSavedKey ? 'block' : 'none';
+            if (editKeyBtn) editKeyBtn.style.display = hasSavedKey ? 'inline' : 'none';
+          } else {
+            if (savedHint) savedHint.style.display = 'none';
+            if (keySavedHint) keySavedHint.style.display = 'none';
+            if (editKeyBtn) editKeyBtn.style.display = 'none';
+          }
+          updateCloudToggleUI(cfg.useCloud);
+          updateCloudStatusBadge();
+        }
+
+        function bindCloudEvents() {
+          var toggleRow = document.getElementById('cloud-toggle-row');
+          var toggle = document.getElementById('cloud-enabled-toggle');
+          if (toggleRow && toggle) {
+            toggleRow.addEventListener('click', function() {
+              toggle.checked = !toggle.checked;
+              updateCloudToggleUI(toggle.checked);
+            });
+          }
+
+          // 修改Key按钮
+          var editKeyBtn = document.getElementById('btn-edit-key');
+          if (editKeyBtn) {
+            editKeyBtn.addEventListener('click', function() {
+              var keyInput = document.getElementById('supabase-key-input');
+              var keySavedHint = document.getElementById('key-saved-hint');
+              if (keyInput) {
+                keyInput.readOnly = false;
+                keyInput.value = '';
+                keyInput.focus();
+                keyInput.placeholder = '请输入新的 Supabase Anon Key';
+              }
+              if (keySavedHint) keySavedHint.style.display = 'none';
+              editKeyBtn.style.display = 'none';
+            });
+          }
+
+          var saveBtn = document.getElementById('btn-save-cloud-config');
+          if (saveBtn) {
+            saveBtn.addEventListener('click', function() {
+              var url = document.getElementById('supabase-url-input').value.trim();
+              var keyInput = document.getElementById('supabase-key-input');
+              var key = keyInput.value.trim();
+              var useCloud = toggle.checked;
+
+              if (useCloud && (!url || (!key && !DataStore.getConfig().supabaseAnonKey))) {
+                WineCabinetApp.showToast('请填写 Supabase URL 和 Key', 'error');
+                return;
+              }
+
+              var actualKey = key;
+              if (key === '********' || key === '') {
+                actualKey = DataStore.getConfig().supabaseAnonKey;
+              }
+
+              var ok = DataStore.saveConfig({
+                supabaseUrl: url,
+                supabaseAnonKey: actualKey,
+                useCloud: useCloud
+              });
+
+              if (ok && useCloud && url && actualKey) {
+                DataStore.initSupabase(url, actualKey);
+              }
+              if (!useCloud) {
+                DataStore.supabaseClient = null;
+              }
+              // 恢复只读状态和提示
+              keyInput.value = actualKey ? '********' : '';
+              keyInput.readOnly = !!actualKey;
+              keyInput.placeholder = 'eyJhbGciOi...';
+              var keySavedHint = document.getElementById('key-saved-hint');
+              var savedHint = document.getElementById('cloud-saved-hint');
+              if (keySavedHint) keySavedHint.style.display = actualKey ? 'block' : 'none';
+              if (savedHint) savedHint.style.display = (actualKey || url) ? 'flex' : 'none';
+              if (editKeyBtn) editKeyBtn.style.display = actualKey ? 'inline' : 'none';
+              updateCloudStatusBadge();
+              WineCabinetApp.showToast('云同步配置已保存', 'success');
+              if (useCloud && url && actualKey) {
+                DataStore.pushCloudData().then(function(success) {
+                  if (success) {
+                    WineCabinetApp.showToast('数据已同步到云端', 'success');
+                  }
+                });
+              }
+            });
+          }
+
+          var syncBtn = document.getElementById('btn-sync-now');
+          if (syncBtn) {
+            syncBtn.addEventListener('click', function() {
+              var cfg = DataStore.getConfig();
+              if (!cfg.useCloud || !cfg.supabaseUrl || !cfg.supabaseAnonKey) {
+                WineCabinetApp.showToast('请先配置并启用云同步', 'error');
+                return;
+              }
+              WineCabinetApp.showToast('正在同步...', 'info');
+              DataStore.pushCloudData().then(function(ok) {
+                if (ok) {
+                  WineCabinetApp.showToast('同步成功', 'success');
+                  updateCloudStatusBadge();
+                } else {
+                  WineCabinetApp.showToast('同步失败，请检查配置', 'error');
+                }
+              });
+            });
+          }
+
+          var copySqlBtn = document.getElementById('btn-copy-sql');
+          var sqlEl = document.getElementById('sql-script');
+          if (copySqlBtn && sqlEl) {
+            copySqlBtn.addEventListener('click', function() {
+              var text = sqlEl.textContent;
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function() {
+                  WineCabinetApp.showToast('SQL已复制到剪贴板', 'success');
+                }, function() {
+                  fallbackCopy(text);
+                });
+              } else {
+                fallbackCopy(text);
+              }
+            });
+          }
+        }
+
+        function fallbackCopy(text) {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          try {
+            document.execCommand('copy');
+            WineCabinetApp.showToast('SQL已复制', 'success');
+          } catch(e) {
+            WineCabinetApp.showToast('复制失败，请手动选择复制', 'error');
+          }
+          document.body.removeChild(ta);
+        }
+
+        function init() {
+          renderUserInfo();
+          renderQuickStats();
+          updateThemeLabel();
+          bindEvents();
+          loadCloudConfigIntoForm();
+          if (window.lucide) {
+            lucide.createIcons();
+          }
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', init);
+        } else {
+          init();
+        }
+      })();
+    </script>
+</body>
+</html>
