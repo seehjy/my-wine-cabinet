@@ -1,0 +1,77 @@
+﻿<!-- project-shell: shared outer structure for 我的酒柜 mobile app -->
+<!-- Leaf pages inherit this shell and fill SLOT: pageContent -->
+<!-- Active tab is controlled via data-active="true" on the correct tab item -->
+
+<!-- Status bar placeholder -->
+<div style="height: 44px; width: 100%; background: transparent;"></div>
+
+<!-- Main content area -->
+<div id="main-content" style="min-height: calc(100vh - 44px - 80px); padding-bottom: 80px;">
+  <!-- SLOT: pageContent -->
+</div>
+
+<!-- Bottom tab bar -->
+<nav style="position: fixed; bottom: 0; left: 0; right: 0; height: calc(56px + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px); background: var(--color-background-elevated); border-top: 1px solid var(--color-border); display: flex; align-items: center; justify-content: space-around; z-index: 100;">
+  <!-- SLOT: activeTab -->
+
+  <!-- 首页 Home -->
+  <a data-dom-id="tab-home" data-nav-key="home" data-active="false" href="home.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; text-decoration: none; color: var(--color-text-tertiary); padding: 6px 0;">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/>
+      <polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
+    <span style="font-size: 10px; font-weight: 500; line-height: 1;">首页</span>
+    <span style="width: 4px; height: 4px; border-radius: 9999px; background: transparent;"></span>
+  </a>
+
+  <!-- 酒柜 Collection -->
+  <a data-dom-id="tab-collection" data-nav-key="collection" data-active="false" href="collection.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; text-decoration: none; color: var(--color-text-tertiary); padding: 6px 0;">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1"/>
+      <rect x="14" y="3" width="7" height="7" rx="1"/>
+      <rect x="3" y="14" width="7" height="7" rx="1"/>
+      <rect x="14" y="14" width="7" height="7" rx="1"/>
+    </svg>
+    <span style="font-size: 10px; font-weight: 500; line-height: 1;">酒柜</span>
+    <span style="width: 4px; height: 4px; border-radius: 9999px; background: transparent;"></span>
+  </a>
+
+  <!-- 品鉴 Tasting -->
+  <a data-dom-id="tab-tasting" data-nav-key="tasting" data-active="false" href="tasting.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; text-decoration: none; color: var(--color-text-tertiary); padding: 6px 0;">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+      <path d="m15 5 4 4"/>
+    </svg>
+    <span style="font-size: 10px; font-weight: 500; line-height: 1;">品鉴</span>
+    <span style="width: 4px; height: 4px; border-radius: 9999px; background: transparent;"></span>
+  </a>
+
+  <!-- 心愿 Wishlist -->
+  <a data-dom-id="tab-wishlist" data-nav-key="wishlist" data-active="false" href="wishlist.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; text-decoration: none; color: var(--color-text-tertiary); padding: 6px 0;">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+    </svg>
+    <span style="font-size: 10px; font-weight: 500; line-height: 1;">心愿</span>
+    <span style="width: 4px; height: 4px; border-radius: 9999px; background: transparent;"></span>
+  </a>
+
+  <!-- 我的 Profile -->
+  <a data-dom-id="tab-profile" data-nav-key="profile" data-active="false" href="profile.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; text-decoration: none; color: var(--color-text-tertiary); padding: 6px 0;">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="8" r="5"/>
+      <path d="M20 21a8 8 0 0 0-16 0"/>
+    </svg>
+    <span style="font-size: 10px; font-weight: 500; line-height: 1;">我的</span>
+    <span style="width: 4px; height: 4px; border-radius: 9999px; background: transparent;"></span>
+  </a>
+</nav>
+
+<!-- Active tab styling override -->
+<style>
+  [data-active="true"] {
+    color: var(--color-primary) !important;
+  }
+  [data-active="true"] span:last-child {
+    background: var(--color-primary) !important;
+  }
+</style>
