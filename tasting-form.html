@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>记录品鉴-我的酒柜</title>
+  <link rel="stylesheet" href="./css/global.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script src="https://unpkg.com/lucide@1.7.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    .bottom-nav { display: none !important; }
+    .page-container { padding-bottom: 80px; }
+  </style>
+</head>
+<body>
+  <main class="page-container">
+    <div class="status-bar-placeholder"></div>
+
+    <div id="main-content" style="padding: 0 var(--spacing-lg) var(--spacing-2xl);">
+
+      <form id="tasting-form" style="padding-top: var(--spacing-lg);">
+
+        <div class="form-group">
+          <label class="form-label" for="wine-search">选择酒品</label>
+          <div class="relative">
+            <input type="text" id="wine-search" class="form-input" placeholder="搜索酒品名称..." autocomplete="off">
+            <i data-lucide="search" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: var(--color-text-tertiary); pointer-events: none;"></i>
+          </div>
+          <div id="wine-search-results" style="position: absolute; left: var(--spacing-lg); right: var(--spacing-lg); top: auto; bottom: auto; max-height: 240px; background: var(--color-background-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow-y: auto; z-index: 100; display: none;">
+          </div>
+          <div id="selected-wine-display" style="margin-top: 8px; padding: 8px 12px; background: var(--color-primary-lightest); border-radius: var(--radius-sm); display: none;">
+            <span style="font-size: var(--text-sm); color: var(--color-primary); font-weight: var(--font-medium);">已选择: </span>
+            <span id="selected-wine-name" style="font-size: var(--text-sm); color: var(--color-text-primary);"></span>
+            <button type="button" id="clear-wine-selection" style="margin-left: 8px; color: var(--color-text-tertiary);" onclick="document.getElementById('selected-wine-display').style.display='none'; document.getElementById('wine-search').value=''; document.getElementById('selected-wine-id').value=''; document.getElementById('wine-search-results').style.display='none';">
+              <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+            </button>
+          </div>
+          <input type="hidden" id="selected-wine-id">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="tasting-date">品鉴日期</label>
+          <input type="date" id="tasting-date" class="form-input" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="occasion">品鉴场景</label>
+          <select id="occasion" class="form-select">
+            <option value="自饮">自饮</option>
+            <option value="聚会">聚会</option>
+            <option value="独酌">独酌</option>
+            <option value="送礼">送礼</option>
+            <option value="其他">其他</option>
+          </select>
+        </div>
+
+        <div class="card" style="margin-bottom: var(--spacing-lg);">
+          <h3 class="section-title" style="margin-bottom: var(--spacing-lg);">评分</h3>
+
+          <div class="form-group">
+            <div class="flex items-center justify-between" style="margin-bottom: var(--spacing-sm);">
+              <label class="form-label" style="margin-bottom: 0;">总体评分</label>
+              <span id="overall-score-display" style="font-size: var(--text-lg); font-weight: var(--font-bold); color: var(--color-primary); font-variant-numeric: tabular-nums;">8.0</span>
+            </div>
+            <input type="range" id="overall-score" min="1" max="10" step="0.5" value="8" style="width: 100%; accent-color: var(--color-primary);">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <div class="flex items-center justify-between" style="margin-bottom: var(--spacing-sm);">
+                <label class="form-label" style="margin-bottom: 0;">色泽</label>
+                <span id="color-score-display" style="font-size: var(--text-sm); font-weight: var(--font-semibold); color: var(--color-primary); font-variant-numeric: tabular-nums;">8</span>
+              </div>
+              <input type="range" id="color-score" min="1" max="10" step="1" value="8" style="width: 100%; accent-color: var(--color-primary);">
+            </div>
+            <div class="form-group">
+              <div class="flex items-center justify-between" style="margin-bottom: var(--spacing-sm);">
+                <label class="form-label" style="margin-bottom: 0;">香气</label>
+                <span id="aroma-score-display" style="font-size: var(--text-sm); font-weight: var(--font-semibold); color: var(--color-primary); font-variant-numeric: tabular-nums;">8</span>
+              </div>
+              <input type="range" id="aroma-score" min="1" max="10" step="1" value="8" style="width: 100%; accent-color: var(--color-primary);">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <div class="flex items-center justify-between" style="margin-bottom: var(--spacing-sm);">
+                <label class="form-label" style="margin-bottom: 0;">口感</label>
+                <span id="taste-score-display" style="font-size: var(--text-sm); font-weight: var(--font-semibold); color: var(--color-primary); font-variant-numeric: tabular-nums;">8</span>
+              </div>
+              <input type="range" id="taste-score" min="1" max="10" step="1" value="8" style="width: 100%; accent-color: var(--color-primary);">
+            </div>
+            <div class="form-group">
+              <div class="flex items-center justify-between" style="margin-bottom: var(--spacing-sm);">
+                <label class="form-label" style="margin-bottom: 0;">整体</label>
+                <span id="overall-dim-score-display" style="font-size: var(--text-sm); font-weight: var(--font-semibold); color: var(--color-primary); font-variant-numeric: tabular-nums;">8</span>
+              </div>
+              <input type="range" id="overall-dim-score" min="1" max="10" step="1" value="8" style="width: 100%; accent-color: var(--color-primary);">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="appearance">色泽描述</label>
+          <textarea id="appearance" class="form-textarea" placeholder="描述酒液颜色、透明度、挂杯..." rows="2"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="aroma-note">香气描述</label>
+          <textarea id="aroma-note" class="form-textarea" placeholder="描述香气类型、层次、变化..." rows="2"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="taste-note">口感描述</label>
+          <textarea id="taste-note" class="form-textarea" placeholder="描述入口感觉、回味、平衡度..." rows="2"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="notes">品鉴笔记</label>
+          <textarea id="notes" class="form-textarea" placeholder="记录口感、回味、层次..." rows="4"></textarea>
+        </div>
+
+      </form>
+
+    </div>
+
+    <div style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; padding: var(--spacing-md) var(--spacing-lg) calc(var(--spacing-md) + env(safe-area-inset-bottom, 0px)) var(--spacing-lg); background: var(--color-background-elevated); border-top: 1px solid var(--color-border-light);">
+      <button type="button" id="save-btn" class="btn btn-primary btn-block">
+        保存品鉴记录
+      </button>
+    </div>
+
+  </main>
+
+  <script src="./js/datastore.js"></script>
+  <script src="./js/app.js"></script>
+  <script src="./js/ui.js"></script>
+  <script src="./js/onboarding.js?v=20260702f"></script>
+  <script>
+    (function() {
+      function init() {
+        WineCabinetUI.renderHeader({
+          title: '记录品鉴',
+          showBack: true,
+          backUrl: 'tasting.html'
+        });
+
+        var today = new Date().toISOString().split('T')[0];
+        document.getElementById('tasting-date').value = today;
+
+        setupWineSearch();
+
+        var urlParams = new URLSearchParams(window.location.search);
+        var wineId = urlParams.get('id') || urlParams.get('wineId');
+        if (wineId) {
+          var wine = WineCabinetApp.getWineById(wineId);
+          if (wine) {
+            document.getElementById('selected-wine-id').value = wine.id;
+            document.getElementById('selected-wine-name').textContent = wine.name + ' ' + wine.degree + '°';
+            document.getElementById('selected-wine-display').style.display = 'block';
+          }
+        }
+
+        bindScoreSliders();
+        bindSaveButton();
+
+        if (window.lucide) {
+          lucide.createIcons();
+        }
+      }
+
+      function setupWineSearch() {
+        var data = WineCabinetApp.getData();
+        
+        if (data.wines.length === 0) {
+          var mainContent = document.getElementById('main-content');
+          var form = document.getElementById('tasting-form');
+          var emptyTip = document.createElement('div');
+          emptyTip.innerHTML = WineCabinetApp.createEmptyState({
+            icon: 'wine',
+            title: '还没有藏酒',
+            message: '先去酒柜添加您的藏酒，才能记录品鉴笔记哦！',
+            actionText: '去添加酒品',
+            actionLink: 'add-wine.html'
+          });
+          mainContent.innerHTML = '';
+          mainContent.appendChild(emptyTip);
+          document.getElementById('save-btn').parentElement.style.display = 'none';
+          return;
+        }
+
+        var searchInput = document.getElementById('wine-search');
+        var resultsContainer = document.getElementById('wine-search-results');
+
+        searchInput.addEventListener('input', function(e) {
+          var query = e.target.value.trim();
+          if (!query) {
+            resultsContainer.style.display = 'none';
+            return;
+          }
+
+          var normalizedQuery = query.toLowerCase();
+          var matches = data.wines.filter(function(wine) {
+            var searchText = (wine.name + ' ' + wine.brand + ' ' + wine.degree + '°').toLowerCase();
+            return searchText.indexOf(normalizedQuery) !== -1;
+          });
+
+          if (matches.length === 0) {
+            resultsContainer.innerHTML = '<div style="padding: 12px; text-align: center; color: var(--color-text-tertiary); font-size: var(--text-sm);">未找到匹配的酒品</div>';
+            resultsContainer.style.display = 'block';
+          } else {
+            resultsContainer.innerHTML = matches.map(function(wine) {
+              return '<div style="padding: 10px 12px; cursor: pointer; border-bottom: 1px solid var(--color-border-light); transition: background-color 0.15s;" onmouseenter="this.style.backgroundColor=\'var(--color-background-muted)\'" onmouseleave="this.style.backgroundColor=\'transparent\'" onclick="selectWine(\'' + wine.id + '\', \'' + wine.name + '\', \'' + wine.degree + '\')">' +
+                '<div style="font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--color-text-primary);">' + wine.name + '</div>' +
+                '<div style="font-size: var(--text-xs); color: var(--color-text-tertiary);">' + wine.brand + ' · ' + wine.degree + '° · ' + wine.capacity + 'ml</div>' +
+              '</div>';
+            }).join('');
+            resultsContainer.style.display = 'block';
+          }
+        });
+
+        document.addEventListener('click', function(e) {
+          if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target)) {
+            resultsContainer.style.display = 'none';
+          }
+        });
+      }
+
+      window.selectWine = function(id, name, degree) {
+        document.getElementById('selected-wine-id').value = id;
+        document.getElementById('selected-wine-name').textContent = name + ' ' + degree + '°';
+        document.getElementById('selected-wine-display').style.display = 'block';
+        document.getElementById('wine-search').value = '';
+        document.getElementById('wine-search-results').style.display = 'none';
+      };
+
+      function bindScoreSliders() {
+        var sliders = [
+          { id: 'overall-score', display: 'overall-score-display' },
+          { id: 'color-score', display: 'color-score-display' },
+          { id: 'aroma-score', display: 'aroma-score-display' },
+          { id: 'taste-score', display: 'taste-score-display' },
+          { id: 'overall-dim-score', display: 'overall-dim-score-display' }
+        ];
+
+        sliders.forEach(function(s) {
+          var slider = document.getElementById(s.id);
+          var display = document.getElementById(s.display);
+          slider.addEventListener('input', function() {
+            display.textContent = slider.value;
+          });
+        });
+      }
+
+      function bindSaveButton() {
+        var btn = document.getElementById('save-btn');
+        btn.addEventListener('click', function() {
+          var wineId = document.getElementById('selected-wine-id').value;
+          if (!wineId) {
+            WineCabinetApp.showToast('请选择酒品', 'error');
+            return;
+          }
+
+          var wine = WineCabinetApp.getWineById(wineId);
+          if (!wine) {
+            WineCabinetApp.showToast('酒品不存在', 'error');
+            return;
+          }
+
+          var overallScore = parseFloat(document.getElementById('overall-score').value);
+          var colorScore = parseInt(document.getElementById('color-score').value);
+          var aromaScore = parseInt(document.getElementById('aroma-score').value);
+          var tasteScore = parseInt(document.getElementById('taste-score').value);
+          var overallDimScore = parseInt(document.getElementById('overall-dim-score').value);
+          var notes = document.getElementById('notes').value;
+          var occasion = document.getElementById('occasion').value;
+          var date = document.getElementById('tasting-date').value;
+          var appearance = document.getElementById('appearance').value.trim();
+          var aromaNote = document.getElementById('aroma-note').value.trim();
+          var tasteNote = document.getElementById('taste-note').value.trim();
+
+          var tastingNote = {
+            wineId: String(wineId),
+            wine: wine.name + ' ' + wine.degree + '°',
+            brand: wine.brand,
+            score: overallScore,
+            dimensions: {
+              color: colorScore,
+              aroma: aromaScore,
+              taste: tasteScore,
+              overall: overallDimScore
+            },
+            appearance: appearance,
+            aroma: aromaNote,
+            taste: tasteNote,
+            notes: notes,
+            occasion: occasion,
+            date: date,
+            photo: null
+          };
+
+          WineCabinetApp.addTastingNote(tastingNote);
+          WineCabinetApp.showToast('品鉴记录已保存', 'success');
+
+          setTimeout(function() {
+            window.location.href = 'tasting.html';
+          }, 1500);
+        });
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+  </script>
+</body>
+</html>
