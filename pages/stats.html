@@ -1,0 +1,396 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>统计分析-我的酒柜</title>
+    <link rel="stylesheet" href="../css/global.css">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="min-h-screen font-sans antialiased">
+    <main class="page-container">
+<div class="status-bar-placeholder"></div>
+
+<div id="main-content" style="padding: 0 16px 24px;">
+
+  <!-- 核心统计卡片 -->
+  <section id="core-stats" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;">
+  </section>
+
+  <!-- 品牌分布 -->
+  <section class="card" style="margin-bottom: 24px;">
+    <h2 class="section-title">品牌分布</h2>
+    <div id="brand-distribution" style="display: flex; flex-direction: column; gap: 12px;">
+    </div>
+  </section>
+
+  <!-- 香型分布 -->
+  <section class="card" style="margin-bottom: 24px;">
+    <h2 class="section-title">香型分布</h2>
+    <div id="aroma-distribution" style="display: flex; flex-direction: column; align-items: center;">
+    </div>
+  </section>
+
+  <!-- 价格区间分布 -->
+  <section class="card" style="margin-bottom: 24px;">
+    <h2 class="section-title">价格分布</h2>
+    <div style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-bottom: 12px;">单位：瓶</div>
+    <div id="price-distribution" style="display: flex; align-items: flex-end; gap: 12px; height: 140px; padding: 0 4px;">
+    </div>
+  </section>
+
+  <!-- 度数分布 -->
+  <section class="card" style="margin-bottom: 24px;">
+    <h2 class="section-title">度数分布</h2>
+    <div style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-bottom: 12px;">单位：瓶</div>
+    <div id="degree-distribution" style="display: flex; align-items: flex-end; gap: 12px; height: 140px; padding: 0 4px;">
+    </div>
+  </section>
+
+  <!-- 月度新增趋势 -->
+  <section class="card" style="margin-bottom: 24px;">
+    <h2 class="section-title">月度新增趋势</h2>
+    <div style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-bottom: 8px;">单位：瓶</div>
+    <div id="monthly-trend" style="position: relative; height: 100px; margin-bottom: 8px;">
+    </div>
+    <div id="monthly-labels" style="display: flex; justify-content: space-between; padding: 0 4px;">
+    </div>
+  </section>
+
+</div>
+
+    </main>
+    <script src="../js/datastore.js"></script>
+    <script src="../js/app.js"></script>
+    <script src="../js/ui.js"></script>
+    <script src="../js/onboarding.js?v=20260702f"></script>
+    <script>
+      (function() {
+        var data = WineCabinetApp.getData() || {};
+        var stats = WineCabinetApp.getStats();
+
+        function formatCurrency(value) {
+          return '¥' + value.toLocaleString('zh-CN');
+        }
+
+        function getBrandStats() {
+          if (!Array.isArray(data.wines)) return [];
+          var brandMap = {};
+          data.wines.forEach(function(w) {
+            if (!brandMap[w.brand]) {
+              brandMap[w.brand] = { count: 0, capacity: 0 };
+            }
+            brandMap[w.brand].count += w.quantity;
+            if (w.status === 'opened' && w.remaining) {
+              brandMap[w.brand].capacity += w.remaining;
+            } else {
+              brandMap[w.brand].capacity += (w.capacity || 0) * w.quantity;
+            }
+          });
+          var list = Object.keys(brandMap).map(function(brand) {
+            return { brand: brand, count: brandMap[brand].count, capacity: brandMap[brand].capacity };
+          });
+          list.sort(function(a, b) { return b.capacity - a.capacity; });
+          return list;
+        }
+
+        function getAromaStats() {
+          if (!Array.isArray(data.wines)) return { list: [], total: 0 };
+          var aromaMap = {};
+          var total = 0;
+          data.wines.forEach(function(w) {
+            if (!aromaMap[w.type]) {
+              aromaMap[w.type] = 0;
+            }
+            aromaMap[w.type] += w.quantity;
+            total += w.quantity;
+          });
+          var list = Object.keys(aromaMap).map(function(type) {
+            return { type: type, count: aromaMap[type], percent: total > 0 ? Math.round(aromaMap[type] / total * 100) : 0 };
+          });
+          list.sort(function(a, b) { return b.count - a.count; });
+          return { list: list, total: total };
+        }
+
+        function getPriceStats() {
+          if (!Array.isArray(data.wines)) return [];
+          var ranges = [
+            { label: '¥0-200', min: 0, max: 200, count: 0 },
+            { label: '¥200-500', min: 200, max: 500, count: 0 },
+            { label: '¥500-1000', min: 500, max: 1000, count: 0 },
+            { label: '¥1000+', min: 1000, max: Infinity, count: 0 }
+          ];
+          data.wines.forEach(function(w) {
+            for (var i = 0; i < ranges.length; i++) {
+              if (w.price >= ranges[i].min && w.price < ranges[i].max) {
+                ranges[i].count += w.quantity;
+                break;
+              }
+            }
+          });
+          return ranges;
+        }
+
+        function getDegreeStats() {
+          if (!Array.isArray(data.wines)) return [];
+          var ranges = [
+            { label: '40°以下', min: 0, max: 40, count: 0 },
+            { label: '40-50°', min: 40, max: 50, count: 0 },
+            { label: '50-55°', min: 50, max: 55, count: 0 },
+            { label: '55°以上', min: 55, max: Infinity, count: 0 }
+          ];
+          data.wines.forEach(function(w) {
+            for (var i = 0; i < ranges.length; i++) {
+              if (w.degree >= ranges[i].min && w.degree < ranges[i].max) {
+                ranges[i].count += w.quantity;
+                break;
+              }
+            }
+          });
+          return ranges;
+        }
+
+        function getMonthlyTrend() {
+          if (!Array.isArray(data.wines)) return { months: [], values: [] };
+          var months = [];
+          var values = [];
+          var now = new Date();
+          for (var i = 5; i >= 0; i--) {
+            var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            var monthLabel = (d.getMonth() + 1) + '月';
+            months.push(monthLabel);
+            var yearMonth = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+            var count = 0;
+            data.wines.forEach(function(w) {
+              if (w.purchaseDate && w.purchaseDate.startsWith(yearMonth)) {
+                count += w.quantity || 1;
+              }
+            });
+            values.push(count);
+          }
+          return { months: months, values: values };
+        }
+
+        function renderCoreStats() {
+          var container = document.getElementById('core-stats');
+          var statItems = [
+            { label: '总价值', value: formatCurrency(stats.totalValue), unit: '估值', icon: 'dollar-sign', color: 'primary' },
+            { label: '在库数量', value: stats.totalCount, unit: '瓶', icon: 'wine', color: 'primary' },
+            { label: '总容量', value: stats.totalCapacity.toLocaleString('zh-CN'), unit: 'mL', icon: 'beaker', color: 'primary' },
+            { label: '已喝完', value: stats.finishedCount, unit: '瓶', icon: 'check-circle', color: 'success' }
+          ];
+
+          container.innerHTML = statItems.map(function(item) {
+            var iconColor = item.color === 'success' ? 'var(--state-success)' : 'var(--color-primary)';
+            var iconBg = item.color === 'success' ? 'rgba(61, 122, 74, 0.1)' : 'var(--color-primary-lightest)';
+            return '<div class="stat-card">' +
+              '<div class="stat-label">' +
+                '<div style="width: 28px; height: 28px; border-radius: var(--radius-sm); background: ' + iconBg + '; display: flex; align-items: center; justify-content: center; color: ' + iconColor + ';">' +
+                  '<i data-lucide="' + item.icon + '" style="width: 16px; height: 16px;"></i>' +
+                '</div>' +
+                item.label +
+              '</div>' +
+              '<div style="display: flex; align-items: baseline; gap: 2px;">' +
+                '<span class="stat-value" style="font-size: var(--text-3xl);">' + item.value + '</span>' +
+                '<span class="stat-unit">' + item.unit + '</span>' +
+              '</div>' +
+            '</div>';
+          }).join('');
+        }
+
+        function renderBrandDistribution() {
+          var container = document.getElementById('brand-distribution');
+          var brands = getBrandStats();
+          if (brands.length === 0) {
+            container.innerHTML = WineCabinetApp.createEmptyState({
+              icon: 'bar-chart-3',
+              title: '还没有藏酒数据',
+              message: '添加酒后就能看到品牌分布统计啦，快去酒柜添加您的第一瓶酒吧！',
+              actionText: '去添加酒品',
+              actionLink: 'add-wine.html'
+            });
+            return;
+          }
+          var maxCapacity = brands[0].capacity;
+          var colors = ['var(--color-primary)', 'var(--color-primary-light)', 'var(--color-primary-lighter)', 'var(--color-primary-lightest)', 'var(--color-border)'];
+
+          container.innerHTML = brands.slice(0, 5).map(function(b, index) {
+            var percent = maxCapacity > 0 ? (b.capacity / maxCapacity * 100) : 0;
+            var color = colors[index % colors.length];
+            var displayBrand = b.brand.length > 6 ? b.brand.substring(0, 6) + '...' : b.brand;
+            return '<div style="display: flex; align-items: center; gap: 10px;">' +
+              '<span style="flex-shrink: 0; width: 64px; font-size: var(--text-sm); color: var(--color-text-primary); font-weight: var(--font-medium);" title="' + b.brand + '">' + displayBrand + '</span>' +
+              '<div style="flex: 1; height: 20px; background: var(--color-background-sunken); border-radius: var(--radius-sm); overflow: hidden;">' +
+                '<div style="width: ' + percent + '%; height: 100%; background: ' + color + '; border-radius: var(--radius-sm); transition: width 600ms ease;"></div>' +
+              '</div>' +
+              '<span style="flex-shrink: 0; font-size: var(--text-sm); color: var(--color-text-secondary); font-variant-numeric: tabular-nums; width: 56px; text-align: right;">' + b.count + '瓶</span>' +
+            '</div>';
+          }).join('');
+        }
+
+        function renderAromaDistribution() {
+          var container = document.getElementById('aroma-distribution');
+          var aromaData = getAromaStats();
+          var list = aromaData.list;
+          var total = aromaData.total;
+
+          if (list.length === 0) {
+            container.innerHTML = WineCabinetApp.createEmptyState({
+              icon: 'pie-chart',
+              title: '暂无香型数据',
+              message: '添加不同香型的酒品，这里会展示您的藏酒香韵构成',
+              actionText: '去添加酒品',
+              actionLink: 'add-wine.html'
+            });
+            return;
+          }
+
+          var colors = ['var(--color-primary)', 'var(--color-primary-dark)', 'var(--color-primary-light)', 'var(--color-primary-lightest)', 'var(--color-border)'];
+          var gradientStops = [];
+          var currentPercent = 0;
+
+          list.forEach(function(item, index) {
+            var color = colors[index % colors.length];
+            var startPercent = currentPercent;
+            currentPercent += item.percent;
+            var endPercent = currentPercent;
+            gradientStops.push(color + ' ' + startPercent + '% ' + endPercent + '%');
+          });
+
+          var pieStyle = 'conic-gradient(' + gradientStops.join(', ') + ')';
+
+          var pieHtml = '<div style="position: relative; width: 160px; height: 160px; margin-bottom: 16px;">' +
+            '<div style="width: 100%; height: 100%; border-radius: 50%; background: ' + pieStyle + ';"></div>' +
+            '<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 88px; height: 88px; border-radius: 50%; background: var(--color-background-elevated); display: flex; flex-direction: column; align-items: center; justify-content: center;">' +
+              '<div style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--color-text-primary); font-variant-numeric: tabular-nums; font-family: var(--font-display); line-height: 1;">' + total + '</div>' +
+              '<div style="font-size: 10px; color: var(--color-text-tertiary);">总数</div>' +
+            '</div>' +
+          '</div>';
+
+          var legendHtml = '<div style="display: flex; flex-wrap: wrap; gap: 12px 20px; justify-content: center;">' +
+            list.map(function(item, index) {
+              var color = colors[index % colors.length];
+              return '<div style="display: flex; align-items: center; gap: 6px;">' +
+                '<div style="width: 10px; height: 10px; border-radius: 2px; background: ' + color + ';"></div>' +
+                '<span style="font-size: var(--text-sm); color: var(--color-text-secondary);">' + item.type + ' ' + item.percent + '%</span>' +
+              '</div>';
+            }).join('') +
+          '</div>';
+
+          container.innerHTML = pieHtml + legendHtml;
+        }
+
+        function renderBarDistribution(containerId, data, colorMap) {
+          var container = document.getElementById(containerId);
+          var isPrice = containerId === 'price-distribution';
+          if (data.length === 0 || data.every(function(d) { return d.count === 0; })) {
+            container.innerHTML = WineCabinetApp.createEmptyState({
+              icon: isPrice ? 'dollar-sign' : 'thermometer',
+              title: '暂无数据',
+              message: isPrice ? '添加酒品并设置价格，就能看到价格区间分布啦' : '添加不同度数的酒品，了解您的藏酒度数偏好',
+              actionText: '去添加酒品',
+              actionLink: 'add-wine.html'
+            });
+            return;
+          }
+          var maxCount = Math.max.apply(null, data.map(function(d) { return d.count; }));
+          if (maxCount === 0) maxCount = 1;
+
+          container.innerHTML = data.map(function(d, index) {
+            var heightPercent = (d.count / maxCount * 100);
+            var color = colorMap ? colorMap[index % colorMap.length] : 'var(--color-primary)';
+            return '<div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end;">' +
+              '<span style="font-size: var(--text-xs); color: var(--color-text-secondary); font-variant-numeric: tabular-nums; font-weight: var(--font-medium);">' + d.count + '</span>' +
+              '<div style="width: 100%; height: ' + heightPercent + '%; background: ' + color + '; border-radius: var(--radius-sm) var(--radius-sm) 0 0; min-height: 8px; transition: height 600ms ease;"></div>' +
+              '<span style="font-size: 10px; color: var(--color-text-tertiary); white-space: nowrap; text-align: center;">' + d.label + '</span>' +
+            '</div>';
+          }).join('');
+        }
+
+        function renderMonthlyTrend() {
+          var trendData = getMonthlyTrend();
+          var container = document.getElementById('monthly-trend');
+          var labelsContainer = document.getElementById('monthly-labels');
+          var months = trendData.months;
+          var values = trendData.values;
+          var maxValue = Math.max.apply(null, values);
+          if (maxValue === 0) maxValue = 1;
+
+          var points = values.map(function(v, i) {
+            var x = (i / (values.length - 1)) * 300;
+            var y = 100 - (v / maxValue * 80) - 10;
+            return { x: x, y: y };
+          });
+
+          var pathD = 'M ' + points.map(function(p) { return p.x + ' ' + p.y; }).join(' L ');
+          var areaD = pathD + ' L 300 100 L 0 100 Z';
+
+          var gridLines = '<div style="position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between;">' +
+            '<div style="border-bottom: 1px dashed var(--color-border-light); width: 100%;"></div>' +
+            '<div style="border-bottom: 1px dashed var(--color-border-light); width: 100%;"></div>' +
+            '<div style="border-bottom: 1px dashed var(--color-border-light); width: 100%;"></div>' +
+          '</div>';
+
+          var svgHtml = '<svg width="100%" height="100%" viewBox="0 0 300 100" preserveAspectRatio="none" style="position: relative; z-index: 1;">' +
+            '<defs>' +
+              '<linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">' +
+                '<stop offset="0%" stop-color="#8B6914" stop-opacity="0.2"/>' +
+                '<stop offset="100%" stop-color="#8B6914" stop-opacity="0.02"/>' +
+              '</linearGradient>' +
+            '</defs>' +
+            '<path d="' + areaD + '" fill="url(#areaGrad)"/>' +
+            '<path d="' + pathD + '" fill="none" stroke="#8B6914" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
+            points.map(function(p) {
+              return '<circle cx="' + p.x + '" cy="' + p.y + '" r="3" fill="#8B6914"/>';
+            }).join('') +
+          '</svg>';
+
+          container.innerHTML = gridLines + svgHtml;
+
+          labelsContainer.innerHTML = months.map(function(m, i) {
+            return '<div style="text-align: center;">' +
+              '<div style="font-size: 10px; color: var(--color-text-tertiary);">' + m + '</div>' +
+              '<div style="font-size: 9px; color: var(--color-text-tertiary);">' + values[i] + '</div>' +
+            '</div>';
+          }).join('');
+        }
+
+        function init() {
+          WineCabinetUI.renderHeader({
+            title: '统计分析',
+            showBack: true,
+            backUrl: 'profile.html'
+          });
+
+          renderCoreStats();
+          renderBrandDistribution();
+          renderAromaDistribution();
+          renderBarDistribution('price-distribution', getPriceStats(), [
+            'var(--color-primary-lightest)',
+            'var(--color-primary)',
+            'var(--color-primary-light)',
+            'var(--color-primary-dark)'
+          ]);
+          renderBarDistribution('degree-distribution', getDegreeStats(), [
+            'var(--color-primary-lightest)',
+            'var(--color-primary-light)',
+            'var(--color-primary)',
+            'var(--color-primary-dark)'
+          ]);
+          renderMonthlyTrend();
+
+          if (window.lucide) {
+            lucide.createIcons();
+          }
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', init);
+        } else {
+          init();
+        }
+      })();
+    </script>
+</body>
+</html>
