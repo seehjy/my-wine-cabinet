@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>心愿单-我的酒柜</title>
+    <link rel="stylesheet" href="../css/global.css">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--color-background);
+    --color-primary: var(--color-primary);
+    --color-border: var(--color-border);
+  }
+  @layer base {
+    body { background: var(--color-background); color: var(--color-text-primary); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased">
+    <main class="page-container">
+<div class="status-bar-placeholder"></div>
+
+<div id="main-content" style="min-height: calc(100vh - 44px - 80px); padding-bottom: 80px;">
+
+  <!-- Page Header -->
+  <div style="padding: 0 var(--spacing-lg) var(--spacing-lg); background: var(--color-background-elevated); border-bottom: 1px solid var(--color-border-light);">
+    <div style="display: flex; align-items: flex-start; justify-content: space-between;">
+      <div>
+        <h1 style="font-family: var(--font-display); font-size: var(--text-3xl); font-weight: var(--font-semibold); line-height: var(--leading-tight); color: var(--color-text-primary); letter-spacing: -0.01em;">心愿单</h1>
+        <p id="wishlist-count" style="font-size: var(--text-sm); color: var(--color-text-tertiary); margin-top: var(--spacing-xs); font-weight: var(--font-normal);">0款待入手</p>
+      </div>
+      <a id="btn-add-wish" href="wishlist-form.html" style="display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--color-background-muted); color: var(--color-primary); text-decoration: none; transition: background 120ms cubic-bezier(.2,.8,.2,1); flex-shrink: 0;">
+        <i data-lucide="plus" style="width: 20px; height: 20px;"></i>
+      </a>
+    </div>
+  </div>
+
+  <!-- Page Content -->
+  <div id="wishlist-container" style="padding: var(--spacing-lg);">
+  </div>
+
+</div>
+
+    </main>
+    <script src="../js/datastore.js"></script>
+    <script src="../js/app.js"></script>
+    <script src="../js/ui.js"></script>
+    <script src="../js/onboarding.js?v=20260702f"></script>
+    <script>
+      (function() {
+        function getWishlistData() {
+          var data = WineCabinetApp.getData();
+          var wishlist = data.wishlist || [];
+          var priorityOrder = { high: 0, medium: 1, low: 2 };
+          return wishlist.slice().sort(function(a, b) {
+            var pa = priorityOrder[a.priority] != null ? priorityOrder[a.priority] : 1;
+            var pb = priorityOrder[b.priority] != null ? priorityOrder[b.priority] : 1;
+            return pa - pb;
+          });
+        }
+
+        function renderEmptyState() {
+          var container = document.getElementById('wishlist-container');
+          container.innerHTML = WineCabinetApp.createEmptyState({
+            icon: 'heart',
+            title: '还没有心愿酒品',
+            message: '看到想入手的好酒？把它加入心愿单，记录目标价格，遇到好价就入手吧！',
+            actionText: '添加第一款心愿酒',
+            actionLink: 'wishlist-form.html'
+          });
+        }
+
+        function renderWishCard(item) {
+          var priorityConfig = {
+            high: { border: true, priceColor: 'var(--color-primary)', badgeStyle: 'color: var(--color-primary); background: var(--color-primary-lightest); font-weight: var(--font-medium);', badgeText: '高优先' },
+            medium: { border: false, priceColor: 'var(--color-text-primary)', badgeStyle: 'color: var(--color-text-secondary); background: var(--color-background-muted); font-weight: var(--font-medium);', badgeText: '普通优先' },
+            low: { border: false, priceColor: 'var(--color-text-tertiary)', badgeStyle: 'color: var(--color-text-tertiary); background: var(--color-background-sunken); font-weight: var(--font-normal);', badgeText: '低优先' }
+          };
+          var cfg = priorityConfig[item.priority] || priorityConfig.medium;
+          var leftBorder = cfg.border ? 'border-left: 3px solid var(--color-primary);' : '';
+
+          return '<div style="background: var(--color-background-elevated); border: 1px solid var(--color-border); ' + leftBorder + ' border-radius: var(--radius-lg); padding: var(--spacing-lg); margin-bottom: var(--spacing-md); transition: border-color 160ms cubic-bezier(.2,.8,.2,1);">' +
+            '<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: var(--spacing-sm);">' +
+              '<div style="flex: 1; min-width: 0;">' +
+                '<h3 style="font-size: var(--text-base); font-weight: var(--font-medium); color: var(--color-text-primary); line-height: 1.4; margin-bottom: var(--spacing-xs);">' + escapeHtml(item.name) + '</h3>' +
+                '<p style="font-size: var(--text-sm); color: var(--color-text-secondary); margin-bottom: var(--spacing-sm);">' + escapeHtml(item.brand) + '</p>' +
+                '<div style="display: flex; align-items: center; gap: var(--spacing-sm); flex-wrap: wrap;">' +
+                  '<span style="font-size: var(--text-sm); color: ' + cfg.priceColor + '; font-weight: var(--font-medium);">目标价 ¥' + (item.targetPrice || 0) + '</span>' +
+                  (item.channel ? '<span style="font-size: var(--text-xs); color: var(--color-text-tertiary); background: var(--color-background-muted); padding: 2px var(--spacing-sm); border-radius: var(--radius-sm);">' + escapeHtml(item.channel) + '</span>' : '') +
+                '</div>' +
+              '</div>' +
+              '<div style="display: flex; flex-direction: column; align-items: flex-end; gap: var(--spacing-sm); flex-shrink: 0;">' +
+                '<span style="font-size: var(--text-xs); ' + cfg.badgeStyle + ' padding: 2px 8px; border-radius: var(--radius-full); line-height: 1.6;">' + cfg.badgeText + '</span>' +
+                '<button data-action="delete" data-id="' + item.id + '" style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--radius-sm); background: transparent; border: none; color: var(--color-text-tertiary); cursor: pointer; transition: all 120ms cubic-bezier(.2,.8,.2,1);" title="删除">' +
+                  '<i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>' +
+                '</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+        }
+
+        function escapeHtml(str) {
+          if (!str) return '';
+          var div = document.createElement('div');
+          div.appendChild(document.createTextNode(str));
+          return div.innerHTML;
+        }
+
+        function render() {
+          var wishlist = getWishlistData();
+          var container = document.getElementById('wishlist-container');
+          var countEl = document.getElementById('wishlist-count');
+
+          countEl.textContent = wishlist.length + '款待入手';
+
+          if (wishlist.length === 0) {
+            renderEmptyState();
+            if (window.lucide) {
+              lucide.createIcons();
+            }
+            return;
+          }
+
+          var highPriority = wishlist.filter(function(w) { return w.priority === 'high'; });
+          var mediumPriority = wishlist.filter(function(w) { return w.priority === 'medium' || !w.priority || w.priority === 'normal'; });
+          var lowPriority = wishlist.filter(function(w) { return w.priority === 'low'; });
+
+          var html = '';
+
+          if (highPriority.length > 0) {
+            html += '<div style="margin-bottom: var(--spacing-xl);">';
+            html += '<div style="display: flex; align-items: center; gap: var(--spacing-sm); margin-bottom: var(--spacing-md);">';
+            html += '<span style="display: inline-block; width: 3px; height: 16px; border-radius: 2px; background: var(--color-primary);"></span>';
+            html += '<h2 style="font-family: var(--font-body); font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--color-primary); letter-spacing: 0.02em; margin: 0;">高优先</h2>';
+            html += '</div>';
+            highPriority.forEach(function(item) {
+              html += renderWishCard(item);
+            });
+            html += '</div>';
+          }
+
+          if (mediumPriority.length > 0) {
+            html += '<div style="margin-bottom: var(--spacing-xl);">';
+            html += '<div style="display: flex; align-items: center; gap: var(--spacing-sm); margin-bottom: var(--spacing-md);">';
+            html += '<span style="display: inline-block; width: 3px; height: 16px; border-radius: 2px; background: var(--color-text-tertiary);"></span>';
+            html += '<h2 style="font-family: var(--font-body); font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--color-text-secondary); letter-spacing: 0.02em; margin: 0;">普通优先</h2>';
+            html += '</div>';
+            mediumPriority.forEach(function(item) {
+              html += renderWishCard(item);
+            });
+            html += '</div>';
+          }
+
+          if (lowPriority.length > 0) {
+            html += '<div style="margin-bottom: var(--spacing-2xl);">';
+            html += '<div style="display: flex; align-items: center; gap: var(--spacing-sm); margin-bottom: var(--spacing-md);">';
+            html += '<span style="display: inline-block; width: 3px; height: 16px; border-radius: 2px; background: var(--color-text-tertiary); opacity: 0.5;"></span>';
+            html += '<h2 style="font-family: var(--font-body); font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--color-text-tertiary); letter-spacing: 0.02em; margin: 0;">低优先</h2>';
+            html += '</div>';
+            lowPriority.forEach(function(item) {
+              html += renderWishCard(item);
+            });
+            html += '</div>';
+          }
+
+          container.innerHTML = html;
+
+          container.querySelectorAll('button[data-action="delete"]').forEach(function(btn) {
+            btn.addEventListener('click', async function(e) {
+              e.stopPropagation();
+              var id = btn.getAttribute('data-id');
+              var appData = WineCabinetApp.getData();
+              var wishItem = (appData.wishlist || []).find(function(w) { return w.id === id; });
+              var confirmed = await WineCabinetApp.showConfirm({
+                title: '移除心愿酒品',
+                message: '确定要从心愿单中移除「' + (wishItem ? wishItem.name : '该酒品') + '」吗？',
+                type: 'warning',
+                confirmText: '确定移除',
+                cancelText: '再保留一下'
+              });
+              if (!confirmed) return;
+              var itemName = wishItem ? wishItem.name : '该酒品';
+              WineCabinetApp.deleteWishlist(id);
+              WineCabinetApp.showToast('已移除「' + itemName + '」', 'success');
+              render();
+            });
+            btn.addEventListener('mouseenter', function() {
+              btn.style.background = 'rgba(166, 61, 47, 0.08)';
+              btn.style.color = 'var(--state-error)';
+            });
+            btn.addEventListener('mouseleave', function() {
+              btn.style.background = 'transparent';
+              btn.style.color = 'var(--color-text-tertiary)';
+            });
+          });
+
+          if (window.lucide) {
+            lucide.createIcons();
+          }
+        }
+
+        var addBtn = document.getElementById('btn-add-wish');
+        if (addBtn) {
+          addBtn.addEventListener('mouseenter', function() {
+            addBtn.style.background = 'var(--color-primary-lightest)';
+          });
+          addBtn.addEventListener('mouseleave', function() {
+            addBtn.style.background = 'var(--color-background-muted)';
+          });
+          addBtn.addEventListener('mousedown', function() {
+            addBtn.style.transform = 'scale(0.95)';
+          });
+          addBtn.addEventListener('mouseup', function() {
+            addBtn.style.transform = 'scale(1)';
+          });
+        }
+
+        function init() {
+          render();
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', init);
+        } else {
+          init();
+        }
+      })();
+    </script>
+</body>
+</html>
