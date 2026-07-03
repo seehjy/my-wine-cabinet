@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>记录饮用-我的酒柜</title>
+  <link rel="stylesheet" href="./css/global.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script src="https://unpkg.com/lucide@1.7.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    .bottom-nav { display: none !important; }
+    .page-container { padding-bottom: 80px; }
+  </style>
+</head>
+<body>
+  <main class="page-container">
+    <div class="status-bar-placeholder"></div>
+
+    <div id="main-content" style="padding: 0 var(--spacing-lg) var(--spacing-2xl);">
+
+      <form id="drinking-form" style="padding-top: var(--spacing-lg);">
+
+        <div class="form-group">
+          <label class="form-label" for="wine-select">选择酒品</label>
+          <select id="wine-select" class="form-select" required>
+            <option value="">请选择酒品</option>
+          </select>
+        </div>
+
+        <div class="card" id="wine-info-card" style="margin-bottom: var(--spacing-lg); display: none;">
+          <div class="flex items-center gap-3">
+            <div class="wine-bottle-icon" style="width: 48px; height: 64px;">
+              <i data-lucide="wine" style="width: 20px; height: 20px;"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <h3 id="wine-name" style="font-size: var(--text-base); font-weight: var(--font-semibold); color: var(--color-text-primary); margin: 0 0 2px 0;"></h3>
+              <p id="wine-detail" style="font-size: var(--text-sm); color: var(--color-text-secondary); margin: 0;"></p>
+            </div>
+            <span id="wine-status" class="badge"></span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="drink-date">饮用日期</label>
+          <input type="date" id="drink-date" class="form-input" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="drink-amount">饮用量 (mL)</label>
+          <input type="number" id="drink-amount" class="form-input" min="1" placeholder="请输入饮用量" required>
+        </div>
+
+        <div id="remaining-preview" class="card" style="margin-bottom: var(--spacing-lg); display: none;">
+          <div class="flex items-center justify-between" style="margin-bottom: var(--spacing-md);">
+            <span style="font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--color-text-secondary);">饮用后剩余</span>
+            <span id="remaining-value" style="font-size: var(--text-lg); font-weight: var(--font-semibold); color: var(--color-primary); font-variant-numeric: tabular-nums;">0mL</span>
+          </div>
+          <div style="width: 100%; height: 8px; background: var(--color-background-muted); border-radius: var(--radius-full); overflow: hidden;">
+            <div id="remaining-bar" style="width: 0%; height: 100%; background: var(--color-primary); border-radius: var(--radius-full); transition: width 320ms cubic-bezier(.3,0,0,1);"></div>
+          </div>
+          <div id="remaining-percent" style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: var(--spacing-sm); font-variant-numeric: tabular-nums;">0%</div>
+          <p id="remaining-warning" style="display: none; margin: var(--spacing-sm) 0 0 0; font-size: var(--text-sm); color: var(--state-warning);">
+            <i data-lucide="alert-triangle" style="width: 14px; height: 14px; vertical-align: -2px; margin-right: 2px;"></i>
+            此瓶将标记为已喝完
+          </p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="notes">备注</label>
+          <textarea id="notes" class="form-textarea" placeholder="记录这次饮酒的感受..." rows="3"></textarea>
+        </div>
+
+      </form>
+
+    </div>
+
+    <div style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; padding: var(--spacing-md) var(--spacing-lg) calc(var(--spacing-md) + env(safe-area-inset-bottom, 0px)) var(--spacing-lg); background: var(--color-background-elevated); border-top: 1px solid var(--color-border-light);">
+      <button type="button" id="save-btn" class="btn btn-primary btn-block">
+        保存饮用记录
+      </button>
+    </div>
+
+  </main>
+
+  <script src="./js/datastore.js"></script>
+  <script src="./js/app.js"></script>
+  <script src="./js/ui.js"></script>
+  <script src="./js/onboarding.js?v=20260702f"></script>
+  <script>
+    (function() {
+      var currentWine = null;
+
+      function init() {
+        var backUrl = 'collection.html';
+        var urlParams = new URLSearchParams(window.location.search);
+        var wineId = urlParams.get('id') || urlParams.get('wineId');
+        if (wineId) {
+          backUrl = 'detail.html?id=' + wineId;
+        }
+
+        WineCabinetUI.renderHeader({
+          title: '记录饮用',
+          showBack: true,
+          backUrl: backUrl
+        });
+
+        var today = new Date().toISOString().split('T')[0];
+        document.getElementById('drink-date').value = today;
+
+        populateWineSelect();
+
+        if (wineId) {
+          document.getElementById('wine-select').value = wineId;
+          updateWineInfo(wineId);
+        }
+
+        bindEvents();
+
+        if (window.lucide) {
+          lucide.createIcons();
+        }
+      }
+
+      function populateWineSelect() {
+        var data = WineCabinetApp.getData();
+        var select = document.getElementById('wine-select');
+        var availableWines = data.wines.filter(function(wine) {
+          return wine.status !== 'finished';
+        });
+        
+        if (availableWines.length === 0) {
+          var mainContent = document.getElementById('main-content');
+          var form = document.getElementById('drinking-form');
+          var emptyTip = document.createElement('div');
+          emptyTip.innerHTML = WineCabinetApp.createEmptyState({
+            icon: 'wine',
+            title: '还没有可饮用的酒品',
+            message: data.wines.length === 0 ? '先去酒柜添加您的藏酒吧' : '所有酒都已喝完，快去补充新酒！',
+            actionText: data.wines.length === 0 ? '去添加酒品' : '去酒柜看看',
+            actionLink: 'collection.html'
+          });
+          mainContent.innerHTML = '';
+          mainContent.appendChild(emptyTip);
+          document.getElementById('save-btn').parentElement.style.display = 'none';
+          return;
+        }
+        
+        availableWines.forEach(function(wine) {
+          var option = document.createElement('option');
+          option.value = wine.id;
+          option.textContent = wine.name + ' ' + wine.degree + '°';
+          select.appendChild(option);
+        });
+      }
+
+      function bindEvents() {
+        document.getElementById('wine-select').addEventListener('change', function(e) {
+          updateWineInfo(e.target.value);
+        });
+
+        document.getElementById('drink-amount').addEventListener('input', updateRemaining);
+
+        document.getElementById('save-btn').addEventListener('click', handleSave);
+      }
+
+      function updateWineInfo(wineId) {
+        if (!wineId) {
+          document.getElementById('wine-info-card').style.display = 'none';
+          document.getElementById('remaining-preview').style.display = 'none';
+          currentWine = null;
+          return;
+        }
+
+        var wine = WineCabinetApp.getWineById(wineId);
+        if (!wine) {
+          currentWine = null;
+          return;
+        }
+
+        currentWine = wine;
+
+        document.getElementById('wine-info-card').style.display = 'block';
+        document.getElementById('wine-name').textContent = wine.name;
+        document.getElementById('wine-detail').textContent = wine.degree + '° · ' + wine.capacity + 'mL';
+
+        var statusBadge = document.getElementById('wine-status');
+        statusBadge.textContent = WineCabinetApp.getStatusText(wine.status);
+        statusBadge.className = 'badge badge-' + WineCabinetApp.getStatusClass(wine.status);
+
+        document.getElementById('remaining-preview').style.display = 'block';
+        updateRemaining();
+
+        if (window.lucide) {
+          lucide.createIcons();
+        }
+      }
+
+      function getCurrentAmount() {
+        if (!currentWine) return 0;
+        if (currentWine.status === 'opened' && currentWine.remaining !== undefined) {
+          return currentWine.remaining;
+        }
+        return currentWine.capacity;
+      }
+
+      function updateRemaining() {
+        if (!currentWine) return;
+
+        var drinkAmount = parseInt(document.getElementById('drink-amount').value) || 0;
+        var currentAmount = getCurrentAmount();
+        var remaining = Math.max(0, currentAmount - drinkAmount);
+        var percent = currentAmount > 0 ? Math.round((remaining / currentAmount) * 100) : 0;
+
+        document.getElementById('remaining-value').textContent = remaining + 'mL';
+        document.getElementById('remaining-bar').style.width = percent + '%';
+        document.getElementById('remaining-percent').textContent = percent + '%';
+
+        var warning = document.getElementById('remaining-warning');
+        var bar = document.getElementById('remaining-bar');
+        if (remaining <= 0) {
+          warning.style.display = 'block';
+          bar.style.background = 'var(--state-warning)';
+        } else {
+          warning.style.display = 'none';
+          bar.style.background = 'var(--color-primary)';
+        }
+      }
+
+      function handleSave() {
+        var wineId = document.getElementById('wine-select').value;
+        if (!wineId) {
+          WineCabinetApp.showToast('请选择酒品', 'error');
+          return;
+        }
+
+        var drinkAmount = parseInt(document.getElementById('drink-amount').value);
+        if (!drinkAmount || drinkAmount <= 0) {
+          WineCabinetApp.showToast('请输入有效的饮用量', 'error');
+          return;
+        }
+
+        var wine = WineCabinetApp.getWineById(wineId);
+        if (!wine) {
+          WineCabinetApp.showToast('酒品不存在', 'error');
+          return;
+        }
+
+        var drinkDate = document.getElementById('drink-date').value;
+        var today = new Date().toISOString().split('T')[0];
+
+        var currentAmount = getCurrentAmount();
+        if (drinkAmount > currentAmount) {
+          WineCabinetApp.showToast('饮用量不能超过剩余量', 'error');
+          return;
+        }
+
+        var updates = {};
+        var activityType = null;
+
+        if (wine.status === 'cellared') {
+          updates.status = 'opened';
+          updates.openDate = today;
+          updates.remaining = Math.max(0, wine.capacity - drinkAmount);
+          if (wine.quantity && wine.quantity > 1) {
+            updates.quantity = wine.quantity - 1;
+          }
+          activityType = 'open';
+        } else if (wine.status === 'opened') {
+          updates.remaining = Math.max(0, currentAmount - drinkAmount);
+        }
+
+        var finalRemaining = updates.remaining != null ? updates.remaining : (currentAmount - drinkAmount);
+        if (finalRemaining <= 0) {
+          updates.status = 'finished';
+          updates.finishDate = today;
+          updates.quantity = 0;
+          activityType = 'finish';
+        }
+
+        WineCabinetApp.updateWine(wineId, updates);
+
+        if (activityType) {
+          var data = WineCabinetApp.getData();
+          data.activities.unshift({ 
+            id: WineCabinetApp.generateId('a'), 
+            type: activityType, 
+            wine: (wine.brand || '') + ' ' + wine.name, 
+            spec: wine.spec,
+            date: today 
+          });
+          WineCabinetApp.saveData(data);
+        }
+
+        WineCabinetApp.showToast('饮用记录已保存', 'success');
+
+        var urlParams = new URLSearchParams(window.location.search);
+        var fromDetail = urlParams.get('wineId') || urlParams.get('id');
+        var targetUrl = fromDetail ? 'detail.html?id=' + wineId : 'collection.html';
+
+        setTimeout(function() {
+          window.location.href = targetUrl;
+        }, 1500);
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+  </script>
+</body>
+</html>
