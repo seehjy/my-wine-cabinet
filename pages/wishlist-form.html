@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>添加心愿-我的酒柜</title>
+  <link rel="stylesheet" href="../css/global.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    .ai-filled { animation: ai-flash 1.5s ease; }
+    @keyframes ai-flash { 0% { background: rgba(139,105,20,0.15); } 100% { background: transparent; } }
+    .bottom-nav { display: none !important; }
+    .page-container { padding-bottom: 80px; }
+  </style>
+</head>
+<body>
+  <main class="page-container">
+    <div class="status-bar-placeholder"></div>
+
+    <div id="main-content" style="padding: 0 16px 32px;">
+
+      <form id="wishlist-form" style="padding-top: 16px;">
+
+        <div class="card" style="margin-bottom: 12px; padding: 16px;">
+          <h3 class="section-title" style="margin-bottom: 12px; font-size: var(--text-lg);">
+            <span style="display:inline-flex;align-items:center;gap:6px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+              想入的酒
+              <span style="font-size:11px;color:var(--color-text-tertiary);font-weight:400;">输入酒名AI自动匹配</span>
+            </span>
+          </h3>
+
+          <div class="form-group">
+            <label class="form-label" for="wine-name">酒名 <span style="color: var(--state-error);">*</span></label>
+            <input type="text" id="wine-name" class="form-input" placeholder="如：飞天茅台" required autocomplete="off">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="brand">品牌</label>
+            <input type="text" id="brand" class="form-input" placeholder="自动填充" autocomplete="off">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="type">香型</label>
+              <select id="type" class="form-select">
+                <option value="">请选择</option>
+                <option value="酱香">酱香</option>
+                <option value="浓香">浓香</option>
+                <option value="清香">清香</option>
+                <option value="兼香">兼香</option>
+                <option value="其他">其他</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="degree">度数</label>
+              <input type="number" id="degree" class="form-input" placeholder="52" step="0.1">
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 12px;">
+          <h3 class="section-title" style="margin-bottom: 16px; font-size: var(--text-lg);">购入计划</h3>
+
+          <div class="form-group">
+            <label class="form-label" for="target-price">目标价格</label>
+            <div style="position: relative;">
+              <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 15px; color: var(--color-text-tertiary); pointer-events: none;">¥</span>
+              <input type="number" id="target-price" class="form-input" style="padding-left: 28px;" placeholder="心理价位" min="0">
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="priority">优先级</label>
+            <select id="priority" class="form-select">
+              <option value="high">🔥 高优先（必入）</option>
+              <option value="medium" selected>⭐ 普通</option>
+              <option value="low">💭 考虑中</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="notes">备注</label>
+          <textarea id="notes" class="form-textarea" rows="2" placeholder="好价提醒、入手原因等"></textarea>
+        </div>
+
+      </form>
+
+    </div>
+
+    <div style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; padding: 12px 16px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); background: var(--color-background-elevated); border-top: 1px solid var(--color-border);">
+      <button type="button" id="save-btn" class="btn btn-primary btn-block">
+        <span style="display:inline-flex;align-items:center;gap:6px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          添加到心愿单
+        </span>
+      </button>
+    </div>
+  </main>
+
+  <script src="../js/datastore.js"></script>
+  <script src="../js/app.js"></script>
+  <script src="../js/ui.js"></script>
+  <script src="../js/onboarding.js?v=20260702f"></script>
+  <script src="../js/wine-db.js?v=20260702f"></script>
+  <script src="../js/ai-helper.js?v=20260702f"></script>
+  <script>
+    (function() {
+      var form = document.getElementById('wishlist-form');
+
+      function init() {
+        WineCabinetUI.renderHeader({
+          title: '添加心愿',
+          showBack: true,
+          backUrl: 'wishlist.html'
+        });
+
+        initSmartSearch();
+        document.getElementById('save-btn').addEventListener('click', handleSave);
+        if (window.lucide) lucide.createIcons();
+      }
+
+      function initSmartSearch() {
+        var nameInput = document.getElementById('wine-name');
+        AIHelper.createSuggestionBox(nameInput, function(wine) {
+          nameInput.value = wine.name;
+          document.getElementById('brand').value = wine.brand;
+          var typeSel = document.getElementById('type');
+          var typeVal = wine.type === '酱香' ? '酱香' : wine.type === '浓香' ? '浓香' : wine.type === '清香' ? '清香' : wine.type === '兼香' ? '兼香' : '其他';
+          typeSel.value = typeVal;
+          document.getElementById('degree').value = wine.degree;
+          var priceInput = document.getElementById('target-price');
+          if (!priceInput.value) priceInput.value = Math.round(wine.price * 0.85);
+          ['brand','degree'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) { el.classList.add('ai-filled'); setTimeout(function(){ el.classList.remove('ai-filled'); }, 2000); }
+          });
+          WineCabinetApp.showToast('已匹配「' + wine.brand + ' ' + wine.name + '」参考价¥' + wine.price, 'success');
+        });
+      }
+
+      function handleSave() {
+        var name = document.getElementById('wine-name').value.trim();
+        if (!name) {
+          WineCabinetApp.showToast('请输入酒名', 'error');
+          document.getElementById('wine-name').focus();
+          return;
+        }
+        var brand = document.getElementById('brand').value.trim();
+        var type = document.getElementById('type').value;
+        var degree = document.getElementById('degree').value ? parseFloat(document.getElementById('degree').value) : null;
+        var targetPrice = parseFloat(document.getElementById('target-price').value) || 0;
+        var priority = document.getElementById('priority').value;
+        var notes = document.getElementById('notes').value.trim();
+
+        var wish = {
+          name: name, brand: brand, type: type, degree: degree,
+          targetPrice: targetPrice, priority: priority, notes: notes
+        };
+        WineCabinetApp.addWish(wish);
+        WineCabinetApp.showToast('已添加到心愿单 ❤️', 'success');
+        setTimeout(function() { window.location.href = 'wishlist.html'; }, 800);
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+  </script>
+</body>
+</html>
