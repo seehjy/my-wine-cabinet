@@ -1,0 +1,1757 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>添加酒品-我的酒柜</title>
+  <link rel="stylesheet" href="../css/global.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    .ai-filled { animation: ai-flash 1.5s ease; }
+    @keyframes ai-flash { 
+      0% { background: rgba(139,105,20,0.18); transform: scale(1.01); } 
+      50% { background: rgba(139,105,20,0.08); }
+      100% { background: transparent; transform: scale(1); } 
+    }
+    .form-input, .form-select, .form-textarea { 
+      transition: all 0.25s ease; 
+      font-size: 16px;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(139,105,20,0.1);
+    }
+    .section-tip {
+      font-size: 12px;
+      color: var(--color-text-tertiary);
+      margin-top: -8px;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+    .quick-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      background: #f5f0e8;
+      color: var(--color-text-secondary);
+      margin: 0 6px 8px 0;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 1px solid transparent;
+    }
+    .quick-tag:hover, .quick-tag.active {
+      background: rgba(139,105,20,0.08);
+      color: var(--color-primary);
+      border-color: var(--color-primary);
+    }
+    .field-hint {
+      font-size: 11px;
+      color: var(--color-text-tertiary);
+      margin-top: 4px;
+    }
+    .ai-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      background: linear-gradient(135deg, var(--color-primary), #DAA520);
+      color: #fff;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .save-btn-shadow {
+      box-shadow: 0 4px 16px rgba(139,105,20,0.35);
+    }
+    .save-btn-shadow:active {
+      transform: scale(0.98);
+    }
+    .mode-card {
+      padding: 20px;
+      cursor: pointer;
+      border: 2px solid var(--color-border-light);
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      border-radius: 16px;
+      background: var(--color-background-elevated);
+    }
+    .mode-card:hover {
+      border-color: var(--color-primary);
+      background: rgba(139,105,20,0.02);
+    }
+    .mode-card:active {
+      transform: scale(0.98);
+    }
+    .search-result-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: background 0.15s;
+      border-bottom: 1px solid var(--color-border-light);
+    }
+    .search-result-item:last-child { border-bottom: none; }
+    .search-result-item:hover { background: var(--color-background-sunken); }
+    .search-result-item:active { background: var(--color-background-muted); }
+    #cascade-selector {
+      background: var(--color-background-elevated);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--color-border-light);
+      padding: 16px;
+    }
+    .cascade-steps {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .cascade-step {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: var(--text-xs);
+      color: var(--color-text-tertiary);
+      transition: all 0.2s;
+    }
+    .cascade-step.active {
+      color: var(--color-primary);
+      font-weight: var(--font-semibold);
+    }
+    .cascade-step-dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--color-background-sunken);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: var(--font-semibold);
+      transition: all 0.2s;
+    }
+    .cascade-step.active .cascade-step-dot {
+      background: var(--color-primary);
+      color: #fff;
+    }
+    .cascade-step-line {
+      width: 24px;
+      height: 2px;
+      background: var(--color-border-light);
+    }
+    .cascade-step.active + .cascade-step-line {
+      background: var(--color-primary);
+    }
+    .cascade-level {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-height: 36px;
+    }
+    .cascade-btn {
+      padding: 9px 18px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-full);
+      background: var(--color-background);
+      font-size: var(--text-sm);
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: var(--font-medium);
+    }
+    .cascade-btn:hover {
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+    }
+    .cascade-btn:active, .cascade-btn.selected {
+      border-color: var(--color-primary);
+      background: var(--color-primary);
+      color: #fff;
+      font-weight: var(--font-semibold);
+      box-shadow: 0 2px 8px rgba(139,105,20,0.3);
+    }
+    #cascade-result {
+      padding: 12px 16px;
+      background: rgba(139,105,20,0.08);
+      border: 1px solid rgba(139,105,20,0.15);
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: var(--text-sm);
+    }
+    #cascade-result > span:first-child {
+      font-weight: var(--font-semibold);
+      color: var(--color-primary);
+    }
+  </style>
+</head>
+<body>
+  <main class="page-container">
+    <div class="status-bar-placeholder"></div>
+
+    <div id="main-content" style="padding: 0 16px 120px;">
+
+      <!-- 第一步：模式选择 -->
+      <div id="add-mode-selector" style="padding-top: 8px;">
+        <div style="display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 32px; height: 40px;">
+          <a href="collection.html" style="position: absolute; left: 0; color: var(--color-text-secondary); text-decoration: none; font-size: var(--text-base);">取消</a>
+          <h1 style="font-size: var(--text-xl); font-weight: var(--font-bold); margin: 0; font-family: var(--font-display);">添加酒品</h1>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <div id="btn-supplement" class="mode-card">
+            <div style="width: 60px; height: 60px; border-radius: 16px; background: linear-gradient(135deg, var(--color-primary), #DAA520); display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 12px rgba(139,105,20,0.25);">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>
+              </svg>
+            </div>
+            <div style="flex: 1;">
+              <h3 style="font-size: var(--text-lg); font-weight: var(--font-bold); margin: 0 0 4px 0; color: var(--color-text-primary);">补充库存</h3>
+              <p style="font-size: var(--text-sm); color: var(--color-text-secondary); margin: 0;">已有的酒，增加数量</p>
+            </div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m9 18 6-6-6-6"/>
+            </svg>
+          </div>
+
+          <div id="btn-new-wine" class="mode-card">
+            <div style="width: 60px; height: 60px; border-radius: 16px; background: linear-gradient(135deg, #22c55e, #16a34a); display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 12px rgba(34,197,94,0.25);">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/>
+              </svg>
+            </div>
+            <div style="flex: 1;">
+              <h3 style="font-size: var(--text-lg); font-weight: var(--font-bold); margin: 0 0 4px 0; color: var(--color-text-primary);">新酒入库</h3>
+              <p style="font-size: var(--text-sm); color: var(--color-text-secondary); margin: 0;">添加新的酒款到酒柜</p>
+            </div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m9 18 6-6-6-6"/>
+            </svg>
+          </div>
+        </div>
+
+        <div style="margin-top: 24px; padding: 14px 16px; background: var(--color-background-elevated); border-radius: var(--radius-md); border: 1px solid var(--color-border-light);">
+          <p style="font-size: var(--text-sm); color: var(--color-text-tertiary); margin: 0; line-height: 1.6;">
+            💡 <strong style="color: var(--color-text-secondary);">小提示：</strong>如果您的酒已经在酒柜中，请选择"补充库存"来增加数量或添加新规格。
+          </p>
+        </div>
+      </div>
+
+      <!-- 补充库存 -->
+      <div id="supplement-form" style="display: none; padding-top: 8px;">
+        <div style="display: flex; align-items: center; position: relative; margin-bottom: 20px; height: 40px;">
+          <a href="javascript:void(0)" id="back-to-selector-supplement" onclick="handleBackFromSupplement()" style="position: absolute; left: 0; color: var(--color-text-secondary); text-decoration: none; display: flex; align-items: center; gap: 4px; font-size: var(--text-sm);">
+            <i data-lucide="arrow-left" style="width: 18px; height: 18px;"></i>
+            <span>返回</span>
+          </a>
+          <h1 style="font-size: var(--text-xl); font-weight: var(--font-bold); margin: 0; text-align: center; flex: 1;">补充库存</h1>
+        </div>
+
+        <div id="supplement-search-card" class="card" style="margin-bottom: 16px;">
+          <h2 class="section-title" style="font-size: var(--text-lg); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="search" style="width: 18px; height: 18px; color: var(--color-primary);"></i>
+            找到已有酒品
+          </h2>
+          <div class="form-group" style="margin-bottom: 0;">
+            <div style="position: relative;">
+              <input type="text" id="supplement-search" class="form-input" placeholder="输入酒名或品牌搜索" style="padding-right: 36px;" autocomplete="off">
+              <i data-lucide="search" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: var(--color-text-tertiary); pointer-events: none;"></i>
+            </div>
+            <div id="supplement-search-results" style="background: var(--color-background-elevated); border: 1px solid var(--color-border-light); border-radius: var(--radius-md); margin-top: 8px; max-height: 240px; overflow-y: auto; display: none;"></div>
+          </div>
+        </div>
+
+        <div id="supplement-variant-select" style="display: none;">
+          <div class="card" style="margin-bottom: 16px;">
+            <h2 class="section-title" style="font-size: var(--text-lg); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="layers" style="width: 18px; height: 18px; color: var(--color-primary);"></i>
+              选择规格
+            </h2>
+            <p class="section-tip">选择要补充的同款酒规格</p>
+            <div id="variant-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
+          </div>
+        </div>
+
+        <div id="supplement-selected" style="display: none;">
+          <div class="card" style="margin-bottom: 16px; border-left: 4px solid var(--color-primary);">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+              <div id="selected-wine-icon" style="width: 48px; height: 48px; border-radius: var(--radius-md); background: linear-gradient(135deg, #FAF6F0, #E8D9B0); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <i data-lucide="wine" style="width: 24px; height: 24px; color: var(--color-primary); opacity: 0.5;"></i>
+              </div>
+              <div style="flex: 1; min-width: 0;">
+                <div id="selected-wine-name" style="font-size: var(--text-lg); font-weight: var(--font-semibold); color: var(--color-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></div>
+                <div id="selected-wine-info" style="font-size: var(--text-sm); color: var(--color-text-tertiary); margin-top: 2px;"></div>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <label id="mode-same" style="display: flex; align-items: center; gap: 10px; padding: 14px; border: 2px solid var(--color-primary); background: rgba(139,105,20,0.04); border-radius: var(--radius-md); cursor: pointer;">
+                <input type="radio" name="supplement-mode" value="same" checked style="accent-color: var(--color-primary);">
+                <div style="font-size: var(--text-base); font-weight: var(--font-semibold); color: var(--color-text-primary);">同款补货</div>
+              </label>
+
+              <label id="mode-different" style="display: flex; align-items: center; gap: 10px; padding: 14px; border: 2px solid var(--color-border-light); border-radius: var(--radius-md); cursor: pointer; transition: all 0.15s;">
+                <input type="radio" name="supplement-mode" value="different" style="accent-color: var(--color-primary);">
+                <div style="font-size: var(--text-base); font-weight: var(--font-semibold); color: var(--color-text-primary);">信息有差异</div>
+              </label>
+            </div>
+          </div>
+
+          <div id="same-mode-panel">
+            <div class="card" style="margin-bottom: 16px;">
+              <div class="form-group">
+                <label class="form-label" for="supplement-quantity">新增数量</label>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <button type="button" id="sq-minus" style="width: 40px; height: 40px; border-radius: var(--radius-md); border: 1px solid var(--color-border); background: var(--color-background-elevated); font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--color-text-secondary);">-</button>
+                  <input type="number" id="supplement-quantity" class="form-input" value="1" min="1" max="99" style="text-align: center; flex: 1; font-size: var(--text-xl); font-weight: var(--font-bold);">
+                  <button type="button" id="sq-plus" style="width: 40px; height: 40px; border-radius: var(--radius-md); border: 1px solid var(--color-border); background: var(--color-background-elevated); font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--color-text-secondary);">+</button>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" for="supplement-note">备注（选填）</label>
+                <input type="text" id="supplement-note" class="form-input" placeholder="如：朋友送的、节日采购、补货">
+              </div>
+            </div>
+
+            <button type="button" id="btn-confirm-supplement" class="btn btn-primary btn-block save-btn-shadow" style="padding: 16px; font-size: 16px; font-weight: 600;">
+              <span style="display:inline-flex;align-items:center;gap:8px;">
+                <i data-lucide="check-circle" style="width: 20px; height: 20px;"></i>
+                确认入库
+              </span>
+            </button>
+          </div>
+
+          <div id="different-mode-panel" style="display: none;">
+            <div class="card" style="margin-bottom: 16px;">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label" for="diff-price">参考价 (元)</label>
+                  <input type="number" id="diff-price" class="form-input" placeholder="0">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="diff-capacity">容量 (mL)</label>
+                  <input type="number" id="diff-capacity" class="form-input" placeholder="500">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label" for="diff-quantity">数量</label>
+                  <input type="number" id="diff-quantity" class="form-input" value="1" min="1">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="diff-location">存放位置</label>
+                  <input type="text" id="diff-location" class="form-input" placeholder="如：酒柜第一层">
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" for="diff-spec">包装/版本</label>
+                <input type="text" id="diff-spec" class="form-input" placeholder="如：礼盒装、小酒版">
+              </div>
+            </div>
+
+            <button type="button" id="btn-goto-edit" class="btn btn-primary btn-block save-btn-shadow" style="padding: 16px; font-size: 16px; font-weight: 600; margin-bottom: 10px;">
+              <span style="display:inline-flex;align-items:center;gap:8px;">
+                <i data-lucide="edit-3" style="width: 20px; height: 20px;"></i>
+                编辑更多信息后保存
+              </span>
+            </button>
+
+            <button type="button" id="btn-quick-save-diff" class="btn btn-ghost btn-block" style="padding: 14px; font-size: 14px;">
+              <span style="display:inline-flex;align-items:center;gap:8px;">
+                <i data-lucide="check-circle" style="width: 18px; height: 18px;"></i>
+                就改这些，直接保存
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 新酒入库表单 -->
+      <form id="add-wine-form" style="display: none; padding-top: 8px;">
+        <div style="display: flex; align-items: center; position: relative; margin-bottom: 16px; height: 40px;">
+          <a href="javascript:void(0)" id="back-to-selector-new" style="position: absolute; left: 0; color: var(--color-text-secondary); text-decoration: none; display: flex; align-items: center; gap: 4px; font-size: var(--text-sm);">
+            <i data-lucide="arrow-left" style="width: 18px; height: 18px;"></i>
+            <span>返回</span>
+          </a>
+          <h1 style="font-size: var(--text-xl); font-weight: var(--font-bold); margin: 0; text-align: center; flex: 1;">新酒入库</h1>
+        </div>
+
+        <div class="card" style="margin-bottom: 12px; padding: 16px;">
+          <h2 class="section-title" style="font-size: var(--text-lg); margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            酒品照片
+            <span class="ai-badge">AI自动识别</span>
+          </h2>
+          <div id="photo-uploader"></div>
+          <div id="std-img-btn-container"></div>
+        </div>
+
+        <div class="card" style="margin-bottom: 12px;">
+          <h2 class="section-title" style="font-size: var(--text-lg); margin-bottom: 8px;">基本信息</h2>
+
+          <div class="form-group">
+            <label class="form-label" for="name">酒名 <span style="color: var(--state-error);">*</span></label>
+            <input type="text" id="name" name="name" class="form-input" placeholder="如：飞天茅台、普五、青花20" required autocomplete="off">
+          </div>
+
+          <div id="quick-tags" style="margin-bottom: 12px;">
+            <span class="quick-tag" data-tag="茅台">茅台</span>
+            <span class="quick-tag" data-tag="五粮液">五粮液</span>
+            <span class="quick-tag" data-tag="国窖1573">国窖1573</span>
+            <span class="quick-tag" data-tag="剑南春">剑南春</span>
+            <span class="quick-tag" data-tag="汾酒">汾酒</span>
+            <span class="quick-tag" data-tag="洋河">洋河</span>
+            <span class="quick-tag" data-tag="郎酒">郎酒</span>
+            <span class="quick-tag" data-tag="习酒">习酒</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="brand">品牌</label>
+            <input type="text" id="brand" name="brand" class="form-input" placeholder="AI自动填充或手动输入" autocomplete="off">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="spec">包装/版本</label>
+            <input type="text" id="spec" name="spec" class="form-input" placeholder="如：礼盒装、整箱6瓶、小酒版、生肖限定" autocomplete="off">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">酒类分类</label>
+            <div id="cascade-selector">
+              <div class="cascade-steps">
+                <div class="cascade-step active" data-step="1">
+                  <span class="cascade-step-dot">1</span>
+                  <span>选择大类</span>
+                </div>
+                <div class="cascade-step-line"></div>
+                <div class="cascade-step" data-step="2">
+                  <span class="cascade-step-dot">2</span>
+                  <span>选择子类</span>
+                </div>
+                <div class="cascade-step-line"></div>
+                <div class="cascade-step" data-step="3">
+                  <span class="cascade-step-dot">3</span>
+                  <span>具体类型</span>
+                </div>
+              </div>
+              <div id="cascade-level1" class="cascade-level"></div>
+              <div id="cascade-level2" class="cascade-level" style="display:none;"></div>
+              <div id="cascade-level3" class="cascade-level" style="display:none;"></div>
+              <div id="cascade-result" style="display:none;"></div>
+            </div>
+            <input type="hidden" id="category" name="category">
+            <input type="hidden" id="subCategory" name="subCategory">
+            <input type="hidden" id="detailType" name="detailType">
+            <input type="hidden" id="type" name="type">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="degree">度数 (°)</label>
+              <input type="number" id="degree" name="degree" class="form-input" placeholder="53" step="0.1">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="capacity">容量 (mL)</label>
+              <input type="number" id="capacity" name="capacity" class="form-input" placeholder="500">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="year">年份/陈酿</label>
+              <input type="number" id="year" name="year" class="form-input" placeholder="一般没有标注可留空" min="1900" max="2100">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="quantity">数量</label>
+              <input type="number" id="quantity" name="quantity" class="form-input" value="1" min="1">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="price">参考价 (元)</label>
+              <input type="number" id="price" name="price" class="form-input" placeholder="0">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="status">状态</label>
+              <select id="status" name="status" class="form-select">
+                <option value="cellared" selected>在藏（未开封）</option>
+                <option value="opened">已开瓶</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 12px;">
+          <h2 class="section-title" style="font-size: var(--text-lg); margin-bottom: 8px;">详细信息（选填）</h2>
+
+          <div class="form-group">
+            <label class="form-label" for="origin">产地</label>
+            <input type="text" id="origin" name="origin" class="form-input" placeholder="AI自动填充或手动输入" autocomplete="off">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="purchaseDate">购入日期</label>
+            <input type="date" id="purchaseDate" name="purchaseDate" class="form-input">
+          </div>
+
+          <div class="form-group" id="expiry-group" style="display:none;">
+            <label class="form-label" for="expiryDate">
+              <i data-lucide="clock" style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:2px;color:var(--state-warning);"></i>
+              保质期/适饮期至
+            </label>
+            <input type="date" id="expiryDate" name="expiryDate" class="form-input">
+            <p class="field-hint" style="color:var(--state-warning);">20度以下低度酒建议填写，方便临期提醒</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="purchaseChannel">购入渠道</label>
+            <input type="text" id="purchaseChannel" name="purchaseChannel" class="form-input" placeholder="如：京东、茅台专卖店、朋友送的">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="location">存放位置</label>
+            <input type="text" id="location" name="location" class="form-input" placeholder="如：酒柜第一层、书房柜子">
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="notes">备注</label>
+            <textarea id="notes" name="notes" class="form-textarea" rows="3" placeholder="想记什么就写什么，比如品鉴心得、重要场合用酒..."></textarea>
+          </div>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <div id="bottom-save-btn" style="position: fixed; bottom: 0; left: 0; right: 0; background: var(--color-background-elevated); border-top: 1px solid var(--color-border); padding: 12px 16px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 100; display: none;">
+    <button type="button" id="btn-save" class="btn btn-primary btn-block save-btn-shadow" style="padding: 16px; font-size: 16px; font-weight: 600;">
+      <span style="display:inline-flex;align-items:center;gap:8px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        保存到我的酒柜
+      </span>
+    </button>
+  </div>
+
+  <script src="../js/datastore.js"></script>
+  <script src="../js/app.js"></script>
+  <script src="../js/ui.js"></script>
+  <script src="../js/onboarding.js?v=20260702f"></script>
+  <script src="../js/wine-db.js?v=20260702f"></script>
+  <script src="../js/ai-helper.js?v=20260702f"></script>
+  <script>
+    window.handleBackFromSupplement = function() {
+      var urlParams = new URLSearchParams(window.location.search);
+      var fromDetail = urlParams.get('from') === 'detail';
+      var preSelectWineId = urlParams.get('wineId');
+      if (fromDetail && preSelectWineId) {
+        window.location.href = 'detail.html?id=' + preSelectWineId;
+      } else {
+        window.location.href = 'home.html';
+      }
+    };
+
+    (function() {
+      var form = null;
+      var uploader = null;
+      var currentImage = null;
+      var matchedWine = null;
+      var selectedSupplementWine = null;
+
+      var modeSelector = document.getElementById('add-mode-selector');
+      var supplementForm = document.getElementById('supplement-form');
+      var addWineForm = document.getElementById('add-wine-form');
+      var bottomSaveBtn = document.getElementById('bottom-save-btn');
+
+      function showMode(mode) {
+        modeSelector.style.display = 'none';
+        supplementForm.style.display = 'none';
+        addWineForm.style.display = 'none';
+        bottomSaveBtn.style.display = 'none';
+
+        if (mode === 'selector') {
+          modeSelector.style.display = 'block';
+        } else if (mode === 'supplement') {
+          supplementForm.style.display = 'block';
+          if (window.lucide) lucide.createIcons();
+        } else if (mode === 'new') {
+          addWineForm.style.display = 'block';
+          bottomSaveBtn.style.display = 'block';
+          if (window.lucide) lucide.createIcons();
+        }
+      }
+
+      function init() {
+        WineCabinetUI.renderHeader({ title: '', showBack: false });
+        var bottomNav = document.querySelector('.bottom-nav');
+        if (bottomNav) bottomNav.remove();
+
+        var urlParams = new URLSearchParams(window.location.search);
+        var mode = urlParams.get('mode');
+        var preSelectWineId = urlParams.get('wineId');
+        var fromDetail = urlParams.get('from') === 'detail';
+        var preBrand = urlParams.get('preBrand');
+        var preName = urlParams.get('preName');
+
+        if (mode === 'supplement' && preSelectWineId) {
+          showMode('supplement');
+          if (fromDetail) {
+            setupSupplementFromDetail(preSelectWineId);
+          } else {
+            selectSupplementWine(preSelectWineId);
+          }
+        } else if (mode === 'new') {
+          showMode('new');
+          initNewWineForm();
+          if (preBrand) form.brand.value = decodeURIComponent(preBrand);
+          if (preName) form.name.value = decodeURIComponent(preName);
+          if (form.name && form.name.value) {
+            form.name.dispatchEvent(new Event('input'));
+          }
+        } else {
+          showMode('selector');
+        }
+
+        document.getElementById('btn-supplement').addEventListener('click', function() {
+          showMode('supplement');
+        });
+
+        document.getElementById('btn-new-wine').addEventListener('click', function() {
+          showMode('new');
+          if (!form) initNewWineForm();
+        });
+
+        document.getElementById('back-to-selector-new').addEventListener('click', function() {
+          showMode('selector');
+        });
+
+        initSupplement();
+      }
+
+      function initSupplement() {
+        var searchInput = document.getElementById('supplement-search');
+        var resultsContainer = document.getElementById('supplement-search-results');
+
+        var debounceTimer = null;
+        searchInput.addEventListener('input', function() {
+          var query = searchInput.value.trim();
+          clearTimeout(debounceTimer);
+          if (query.length < 1) {
+            resultsContainer.style.display = 'none';
+            return;
+          }
+          debounceTimer = setTimeout(function() {
+            var data = WineCabinetApp.getData();
+            var wines = (data.wines || []).filter(function(w) {
+              return w.status !== 'finished';
+            });
+            var lowerQ = query.toLowerCase();
+            var matches = wines.filter(function(w) {
+              return (w.name && w.name.toLowerCase().indexOf(lowerQ) !== -1) ||
+                     (w.brand && w.brand.toLowerCase().indexOf(lowerQ) !== -1);
+            }).slice(0, 8);
+
+            if (matches.length === 0) {
+              resultsContainer.innerHTML = '<div style="padding: 16px; text-align: center; color: var(--color-text-tertiary); font-size: var(--text-sm);">未找到相关酒品，试试其他关键词</div>';
+              resultsContainer.style.display = 'block';
+              return;
+            }
+
+            var html = '';
+            matches.forEach(function(w) {
+              html += '<div class="search-result-item" data-id="' + w.id + '">' +
+                '<div style="width: 40px; height: 40px; border-radius: var(--radius-md); background: linear-gradient(135deg, #FAF6F0, #E8D9B0); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">' +
+                  '<i data-lucide="wine" style="width: 20px; height: 20px; color: var(--color-primary); opacity: 0.4;"></i>' +
+                '</div>' +
+                '<div style="flex: 1; min-width: 0;">' +
+                  '<div style="font-size: var(--text-base); font-weight: var(--font-medium); color: var(--color-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + WineCabinetApp.escapeHtml(w.name) + '</div>' +
+                  '<div style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 2px;">' + WineCabinetApp.escapeHtml(w.brand || '未知品牌') + ' · ' + (w.type || '未知类型') + ' · 当前 ' + (w.quantity || 1) + ' 瓶</div>' +
+                '</div>' +
+                '<i data-lucide="chevron-right" style="width: 18px; height: 18px; color: var(--color-text-tertiary); flex-shrink: 0;"></i>' +
+              '</div>';
+            });
+            resultsContainer.innerHTML = html;
+            resultsContainer.style.display = 'block';
+
+            if (window.lucide) lucide.createIcons();
+
+            resultsContainer.querySelectorAll('.search-result-item').forEach(function(el) {
+              el.addEventListener('click', function() {
+                var wineId = el.getAttribute('data-id');
+                selectSupplementWine(wineId);
+              });
+            });
+          }, 200);
+        });
+
+        document.getElementById('sq-minus').addEventListener('click', function() {
+          var input = document.getElementById('supplement-quantity');
+          var val = parseInt(input.value) || 1;
+          if (val > 1) input.value = val - 1;
+        });
+
+        document.getElementById('sq-plus').addEventListener('click', function() {
+          var input = document.getElementById('supplement-quantity');
+          var val = parseInt(input.value) || 1;
+          if (val < 99) input.value = val + 1;
+        });
+
+        document.getElementById('btn-confirm-supplement').addEventListener('click', function() {
+          handleSupplement();
+        });
+
+        document.getElementById('btn-quick-save-diff').addEventListener('click', function() {
+          handleDiffQuickSave();
+        });
+
+        document.getElementById('btn-goto-edit').addEventListener('click', function() {
+          handleDiffGoEdit();
+        });
+      }
+
+      function setupSupplementFromDetail(wineId) {
+        var wine = WineCabinetApp.getWineById(wineId);
+        if (!wine) return;
+
+        var data = WineCabinetApp.getData();
+        var allWines = data.wines || [];
+        var brandKey = (wine.brand || '').trim().toLowerCase();
+        var nameKey = (wine.name || '').trim().toLowerCase();
+
+        var variants = allWines.filter(function(w) {
+          var b = (w.brand || '').trim().toLowerCase();
+          var n = (w.name || '').trim().toLowerCase();
+          return b === brandKey && n === nameKey && w.status !== 'finished';
+        }).sort(function(a, b) {
+          var statusOrder = { cellared: 0, opened: 1, finished: 2 };
+          var sa = statusOrder[a.status] !== undefined ? statusOrder[a.status] : 9;
+          var sb = statusOrder[b.status] !== undefined ? statusOrder[b.status] : 9;
+          if (sa !== sb) return sa - sb;
+          return (b.capacity || 0) - (a.capacity || 0);
+        });
+
+        var searchCard = document.getElementById('supplement-search-card');
+        if (searchCard) searchCard.style.display = 'none';
+
+        var variantSelect = document.getElementById('supplement-variant-select');
+        var variantList = document.getElementById('variant-list');
+        variantSelect.style.display = 'block';
+
+        var html = '';
+        variants.forEach(function(v) {
+          var statusText = '在藏';
+          if (v.status === 'opened') statusText = '已开瓶';
+          if (v.status === 'finished') statusText = '已饮完';
+          html += '<div class="variant-item" data-id="' + v.id + '" style="padding: 14px; border: 1px solid var(--color-border-light); border-radius: var(--radius-md); cursor: pointer; transition: all 0.15s; background: var(--color-background-elevated);">' +
+            '<div style="display: flex; align-items: center; gap: 12px;">' +
+              '<div style="width: 40px; height: 40px; border-radius: var(--radius-md); background: linear-gradient(135deg, #FAF6F0, #E8D9B0); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">' +
+                '<i data-lucide="wine" style="width: 20px; height: 20px; color: var(--color-primary); opacity: 0.5;"></i>' +
+              '</div>' +
+              '<div style="flex: 1; min-width: 0;">' +
+                '<div style="font-size: var(--text-base); font-weight: var(--font-semibold); color: var(--color-text-primary); display: flex; align-items: center; gap: 8px;">' +
+                  '<span>' + (v.capacity || '—') + 'mL</span>' +
+                  '<span style="color: var(--color-text-tertiary); font-weight: normal;">·</span>' +
+                  '<span style="color: var(--color-text-secondary); font-weight: normal;">' + (v.degree || '—') + '°</span>' +
+                '</div>' +
+                '<div style="font-size: var(--text-sm); color: var(--color-text-tertiary); margin-top: 4px; display: flex; flex-wrap: wrap; gap: 8px;">' +
+                  '<span>数量 ' + (v.quantity || 1) + ' 瓶</span>' +
+                  '<span>·</span>' +
+                  '<span>¥' + (v.price || 0) + '</span>' +
+                  '<span>·</span>' +
+                  '<span>' + (v.purchaseDate || '未知日期') + '</span>' +
+                '</div>' +
+                (v.spec ? '<div style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 4px;">' + WineCabinetApp.escapeHtml(v.spec) + '</div>' : '') +
+              '</div>' +
+              '<i data-lucide="chevron-right" style="width: 18px; height: 18px; color: var(--color-text-tertiary); flex-shrink: 0;"></i>' +
+            '</div>' +
+          '</div>';
+        });
+        html += '<div class="variant-item" id="add-new-variant-btn" style="padding: 14px; border: 2px dashed var(--color-border); border-radius: var(--radius-md); cursor: pointer; transition: all 0.15s; background: var(--color-background);">' +
+          '<div style="display: flex; align-items: center; gap: 12px;">' +
+            '<div style="width: 40px; height: 40px; border-radius: var(--radius-md); background: rgba(139,105,20,0.08); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">' +
+              '<i data-lucide="plus" style="width: 20px; height: 20px; color: var(--color-primary);"></i>' +
+            '</div>' +
+            '<div style="flex: 1; min-width: 0;">' +
+              '<div style="font-size: var(--text-base); font-weight: var(--font-semibold); color: var(--color-primary);">新增其他规格</div>' +
+              '<div style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 2px;">容量、度数等信息不同的新批次</div>' +
+            '</div>' +
+            '<i data-lucide="chevron-right" style="width: 18px; height: 18px; color: var(--color-text-tertiary); flex-shrink: 0;"></i>' +
+          '</div>' +
+        '</div>';
+        variantList.innerHTML = html;
+
+        if (window.lucide) lucide.createIcons();
+
+        variantList.querySelectorAll('.variant-item[data-id]').forEach(function(el) {
+          el.addEventListener('click', function() {
+            var id = el.getAttribute('data-id');
+            selectSupplementWine(id, true);
+          });
+        });
+
+        var addNewBtn = document.getElementById('add-new-variant-btn');
+        if (addNewBtn) {
+          addNewBtn.addEventListener('click', function() {
+            goToNewVariantMode();
+          });
+        }
+      }
+
+      function goToNewVariantMode() {
+        var firstVariant = document.querySelector('.variant-item[data-id]');
+        if (!firstVariant) return;
+        var firstId = firstVariant.getAttribute('data-id');
+        var wine = WineCabinetApp.getWineById(firstId);
+        if (!wine) return;
+        selectedSupplementWine = wine;
+        document.getElementById('supplement-variant-select').style.display = 'none';
+        var supplementSelected = document.getElementById('supplement-selected');
+        supplementSelected.style.display = 'block';
+        document.getElementById('selected-wine-name').textContent = (wine.brand || '') + ' ' + wine.name;
+        document.getElementById('selected-wine-info').textContent = (wine.type || '未知类型') + ' · ' + (wine.degree || '—') + '° · 新增规格';
+        document.getElementById('supplement-quantity').value = 1;
+        document.getElementById('supplement-note').value = '';
+        document.getElementById('diff-price').value = '';
+        document.getElementById('diff-capacity').value = '';
+        document.getElementById('diff-quantity').value = 1;
+        document.getElementById('diff-location').value = '';
+        document.getElementById('diff-spec').value = '';
+        var modeSame = document.getElementById('mode-same');
+        var modeDiff = document.getElementById('mode-different');
+        var samePanel = document.getElementById('same-mode-panel');
+        var diffPanel = document.getElementById('different-mode-panel');
+        var radioSame = modeSame.querySelector('input[type="radio"]');
+        var radioDiff = modeDiff.querySelector('input[type="radio"]');
+        modeSame.style.display = 'none';
+        modeDiff.style.display = 'none';
+        diffPanel.style.display = 'block';
+        samePanel.style.display = 'none';
+        radioDiff.checked = true;
+        radioSame.checked = false;
+        if (window.lucide) lucide.createIcons();
+      }
+
+      function selectSupplementWine(wineId, defaultDifferentMode) {
+        var wine = WineCabinetApp.getWineById(wineId);
+        if (!wine) return;
+
+        selectedSupplementWine = wine;
+
+        document.getElementById('supplement-search-results').style.display = 'none';
+        document.getElementById('supplement-search').value = '';
+
+        document.getElementById('supplement-variant-select').style.display = 'none';
+
+        document.getElementById('supplement-selected').style.display = 'block';
+        document.getElementById('selected-wine-name').textContent = (wine.brand || '') + ' ' + wine.name;
+        document.getElementById('selected-wine-info').textContent = (wine.type || '未知类型') + ' · ' + (wine.degree || '—') + '° · ' + (wine.capacity || '—') + 'mL · 现有 ' + (wine.quantity || 1) + ' 瓶';
+
+        document.getElementById('supplement-quantity').value = 1;
+        document.getElementById('supplement-note').value = '';
+
+        document.getElementById('diff-price').value = wine.price || '';
+        document.getElementById('diff-capacity').value = wine.capacity || '';
+        document.getElementById('diff-quantity').value = 1;
+        document.getElementById('diff-location').value = wine.location || '';
+        document.getElementById('diff-spec').value = wine.spec || '';
+
+        var modeSame = document.getElementById('mode-same');
+        var modeDiff = document.getElementById('mode-different');
+        var samePanel = document.getElementById('same-mode-panel');
+        var diffPanel = document.getElementById('different-mode-panel');
+        var radioSame = modeSame.querySelector('input[type="radio"]');
+        var radioDiff = modeDiff.querySelector('input[type="radio"]');
+
+        function setMode(isDifferent) {
+          if (isDifferent) {
+            modeDiff.style.borderColor = 'var(--color-primary)';
+            modeDiff.style.background = 'rgba(139,105,20,0.04)';
+            modeSame.style.borderColor = 'var(--color-border-light)';
+            modeSame.style.background = 'transparent';
+            diffPanel.style.display = 'block';
+            samePanel.style.display = 'none';
+            radioDiff.checked = true;
+            radioSame.checked = false;
+          } else {
+            modeSame.style.borderColor = 'var(--color-primary)';
+            modeSame.style.background = 'rgba(139,105,20,0.04)';
+            modeDiff.style.borderColor = 'var(--color-border-light)';
+            modeDiff.style.background = 'transparent';
+            samePanel.style.display = 'block';
+            diffPanel.style.display = 'none';
+            radioSame.checked = true;
+            radioDiff.checked = false;
+          }
+        }
+
+        setMode(defaultDifferentMode ? true : false);
+
+        modeSame.addEventListener('click', function() {
+          setMode(false);
+        });
+
+        modeDiff.addEventListener('click', function() {
+          setMode(true);
+        });
+
+        if (window.lucide) lucide.createIcons();
+      }
+
+      function handleSupplement() {
+        if (!selectedSupplementWine) {
+          WineCabinetApp.showToast('请先搜索并选择酒品', 'error');
+          return;
+        }
+
+        var quantity = parseInt(document.getElementById('supplement-quantity').value) || 1;
+        var note = document.getElementById('supplement-note').value.trim();
+
+        var btn = document.getElementById('btn-confirm-supplement');
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+
+        setTimeout(function() {
+          var newQuantity = (selectedSupplementWine.quantity || 1) + quantity;
+          WineCabinetApp.updateWine(selectedSupplementWine.id, { quantity: newQuantity });
+
+          if (note) {
+            var data = WineCabinetApp.getData();
+            var wine = data.wines.find(function(w) { return w.id === selectedSupplementWine.id; });
+            if (wine) {
+              wine.notes = (wine.notes ? wine.notes + '\n' : '') + '[' + new Date().toISOString().slice(0, 10) + '] ' + note + ' (+' + quantity + '瓶)';
+              WineCabinetApp.saveData(data);
+            }
+          }
+
+          WineCabinetApp.showToast('已补充 ' + quantity + ' 瓶「' + selectedSupplementWine.name + '」', 'success');
+
+          btn.disabled = false;
+          btn.style.opacity = '1';
+
+          setTimeout(function() {
+            resetSupplement();
+            showMode('selector');
+          }, 800);
+        }, 300);
+      }
+
+      function handleDiffQuickSave() {
+        if (!selectedSupplementWine) {
+          WineCabinetApp.showToast('请先选择酒品', 'error');
+          return;
+        }
+
+        var btn = document.getElementById('btn-quick-save-diff');
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+
+        setTimeout(function() {
+          var w = selectedSupplementWine;
+          var newWine = JSON.parse(JSON.stringify(w));
+          delete newWine.id;
+          delete newWine.createdAt;
+          delete newWine.updatedAt;
+
+          var newPrice = document.getElementById('diff-price').value;
+          var newCapacity = document.getElementById('diff-capacity').value;
+          var newQuantity = document.getElementById('diff-quantity').value;
+          var newLocation = document.getElementById('diff-location').value;
+          var newSpec = document.getElementById('diff-spec').value;
+
+          if (newPrice !== '') newWine.price = parseFloat(newPrice);
+          if (newCapacity !== '') newWine.capacity = parseInt(newCapacity);
+          if (newQuantity !== '') newWine.quantity = parseInt(newQuantity);
+          if (newLocation !== undefined) newWine.location = newLocation;
+          if (newSpec !== undefined) newWine.spec = newSpec;
+
+          newWine.purchaseDate = new Date().toISOString().slice(0, 10);
+          newWine.status = 'cellared';
+          newWine.remaining = null;
+          newWine.openDate = null;
+          newWine.pinned = false;
+          newWine.tastingScore = null;
+          newWine.notes = '';
+
+          WineCabinetApp.addWine(newWine);
+          WineCabinetApp.showToast('已添加「' + w.name + '」', 'success');
+
+          btn.disabled = false;
+          btn.style.opacity = '1';
+
+          setTimeout(function() {
+            resetSupplement();
+            showMode('selector');
+          }, 800);
+        }, 300);
+      }
+
+      function handleDiffGoEdit() {
+        if (!selectedSupplementWine) return;
+
+        if (!form) initNewWineForm();
+
+        var w = selectedSupplementWine;
+        form.name.value = w.name || '';
+        form.brand.value = w.brand || '';
+        form.spec.value = document.getElementById('diff-spec').value || w.spec || '';
+        form.degree.value = w.degree || '';
+        form.capacity.value = document.getElementById('diff-capacity').value || w.capacity || '';
+        form.year.value = w.year || new Date().getFullYear();
+        form.quantity.value = document.getElementById('diff-quantity').value || 1;
+        form.price.value = document.getElementById('diff-price').value || w.price || '';
+        form.status.value = 'cellared';
+        form.origin.value = w.origin || '';
+        form.purchaseDate.value = new Date().toISOString().slice(0, 10);
+        form.purchaseChannel.value = w.purchaseChannel || '';
+        form.location.value = document.getElementById('diff-location').value || w.location || '';
+        form.notes.value = '';
+
+        // 预填级联选择器（先设置级联，再设置type隐藏字段）
+        if (w.category) {
+          setCascadeFromType(w.detailType || w.subCategory || w.category);
+        } else if (w.type) {
+          setCascadeFromType(w.type);
+        }
+
+        if (w.degree && w.degree <= 20 || document.getElementById('category').value === '啤酒' || document.getElementById('category').value === '葡萄酒' || document.getElementById('category').value === '其他') {
+          form.expiryDate.value = w.expiryDate || '';
+          document.getElementById('expiry-group').style.display = 'block';
+        }
+
+        currentImage = w.image || null;
+        if (uploader && currentImage) {
+          uploader.setImage(currentImage);
+        }
+
+        showMode('new');
+      }
+
+      function resetSupplement() {
+        selectedSupplementWine = null;
+        document.getElementById('supplement-search').value = '';
+        document.getElementById('supplement-search-results').style.display = 'none';
+        document.getElementById('supplement-selected').style.display = 'none';
+        document.getElementById('supplement-variant-select').style.display = 'none';
+        document.getElementById('supplement-quantity').value = 1;
+        document.getElementById('supplement-note').value = '';
+
+        var searchCard = document.getElementById('supplement-search-card');
+        if (searchCard) searchCard.style.display = 'block';
+      }
+
+      function initNewWineForm() {
+        form = document.getElementById('add-wine-form');
+        document.getElementById('year').value = new Date().getFullYear();
+        document.getElementById('purchaseDate').value = new Date().toISOString().slice(0, 10);
+
+        initPhotoUploader();
+        initSmartSearch();
+        initQuickTags();
+        initCascadeSelector();
+        initExpiryField();
+        document.getElementById('btn-save').addEventListener('click', handleSave);
+
+        setTimeout(function() {
+          if (window.AIHelper && AIHelper.preloadTesseract) {
+            AIHelper.preloadTesseract();
+          }
+        }, 500);
+      }
+
+      function initExpiryField() {
+        var degreeInput = document.getElementById('degree');
+        degreeInput.addEventListener('input', checkNeedExpiry);
+        degreeInput.addEventListener('change', checkNeedExpiry);
+      }
+
+      function initPhotoUploader() {
+        uploader = AIHelper.createImageUploader(document.getElementById('photo-uploader'), {
+          onImageReady: function(compressedResult, originalFile) {
+            currentImage = compressedResult.dataUrl;
+            startAIAnalysis(originalFile);
+          },
+          onImageChange: function(dataUrl) {
+            currentImage = dataUrl;
+          },
+          onError: function(msg) {
+            WineCabinetApp.showToast(msg || '图片处理失败，请重试', 'error');
+          }
+        });
+      }
+
+      function startAIAnalysis(file) {
+        AIHelper.quickRecognize(file, function(wine, result) {
+          if (wine) {
+            matchedWine = wine;
+            AIHelper.fillForm(form, wine, { overwrite: true });
+            var finalImg = (result && result.image) ? result.image : currentImage;
+            currentImage = finalImg;
+            uploader.setImage(finalImg);
+            updateStdImageButton(wine);
+            WineCabinetApp.showToast('已填充「' + wine.brand + ' ' + wine.name + '」', 'success');
+          } else if (result && result.cancelled) {
+          } else {
+            WineCabinetApp.showToast('未识别到，请手动填写', 'info');
+          }
+        });
+      }
+
+      function initSmartSearch() {
+        var nameInput = document.getElementById('name');
+        AIHelper.createSuggestionBox(nameInput, function(wine) {
+          matchedWine = wine;
+          nameInput.value = wine.name;
+          AIHelper.fillForm(form, wine, { overwrite: true });
+          updateStdImageButton(wine);
+          WineCabinetApp.showToast('已填充「' + wine.brand + ' ' + wine.name + '」', 'success');
+        });
+
+        createFuzzySuggestion(document.getElementById('brand'), function(item) {
+          document.getElementById('brand').value = item;
+        });
+
+        createFuzzySuggestion(document.getElementById('origin'), function(item) {
+          document.getElementById('origin').value = item;
+        });
+
+        createHistorySuggestion(document.getElementById('location'), 'wine_location');
+        createHistorySuggestion(document.getElementById('purchaseChannel'), 'wine_channel');
+      }
+
+      function createFuzzySuggestion(inputEl, onSelect) {
+        var box = document.createElement('div');
+        box.style.cssText = 'position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--color-border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:200;max-height:200px;overflow-y:auto;margin-top:4px;display:none;';
+        if (inputEl.parentNode) {
+          inputEl.parentNode.style.position = 'relative';
+          inputEl.parentNode.appendChild(box);
+        }
+
+        var selectedIdx = -1;
+
+        function hide() {
+          box.style.display = 'none';
+          selectedIdx = -1;
+        }
+
+        function render(items) {
+          box.innerHTML = '';
+          items.forEach(function(item, idx) {
+            var el = document.createElement('div');
+            el.style.cssText = 'padding:10px 16px;cursor:pointer;font-size:14px;color:var(--color-text-primary);border-bottom:1px solid #f5f0e8;transition:background .15s;';
+            el.textContent = item;
+            el.addEventListener('mouseenter', function() {
+              selectedIdx = idx;
+              updateHighlight();
+            });
+            el.addEventListener('click', function() {
+              onSelect(item);
+              hide();
+            });
+            box.appendChild(el);
+          });
+        }
+
+        function updateHighlight() {
+          var items = box.querySelectorAll('div');
+          items.forEach(function(el, i) {
+            el.style.background = i === selectedIdx ? 'rgba(139,105,20,0.08)' : '';
+          });
+        }
+
+        var timer = null;
+        inputEl.addEventListener('input', function() {
+          clearTimeout(timer);
+          var q = inputEl.value.trim();
+          timer = setTimeout(function() {
+            if (!q) { hide(); return; }
+            var results = getFuzzyMatches(q, inputEl.id);
+            if (results.length > 0) {
+              render(results);
+              box.style.display = 'block';
+              selectedIdx = 0;
+              updateHighlight();
+            } else {
+              hide();
+            }
+          }, 150);
+        });
+
+        inputEl.addEventListener('keydown', function(e) {
+          if (box.style.display === 'none') return;
+          var items = box.querySelectorAll('div');
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedIdx = Math.min(selectedIdx + 1, items.length - 1);
+            updateHighlight();
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedIdx = Math.max(selectedIdx - 1, 0);
+            updateHighlight();
+          } else if (e.key === 'Enter' && selectedIdx >= 0) {
+            e.preventDefault();
+            onSelect(items[selectedIdx].textContent);
+            hide();
+          } else if (e.key === 'Escape') {
+            hide();
+          }
+        });
+
+        inputEl.addEventListener('blur', function() {
+          setTimeout(hide, 200);
+        });
+      }
+
+      function getFuzzyMatches(query, field) {
+        var q = query.toLowerCase();
+        var candidates = {};
+
+        if (field === 'brand') {
+          WineDB.getAll().forEach(function(w) {
+            if (w.brand && (w.brand.toLowerCase().indexOf(q) !== -1 || w.brand.startsWith(q))) {
+              candidates[w.brand] = true;
+            }
+          });
+        } else if (field === 'origin') {
+          WineDB.getAll().forEach(function(w) {
+            if (w.origin && (w.origin.toLowerCase().indexOf(q) !== -1 || w.origin.startsWith(q))) {
+              candidates[w.origin] = true;
+            }
+          });
+        }
+
+        var result = Object.keys(candidates);
+        result.sort(function(a, b) {
+          var aMatch = a.toLowerCase().indexOf(q);
+          var bMatch = b.toLowerCase().indexOf(q);
+          if (aMatch !== bMatch) return aMatch - bMatch;
+          return a.length - b.length;
+        });
+        return result.slice(0, 8);
+      }
+
+      function showTypeSuggestions(selectEl) {
+        var types = ['酱香', '浓香', '清香', '兼香', '洋酒', '葡萄酒', '啤酒', '黄酒', '清酒', '其他'];
+        var q = selectEl.value.trim().toLowerCase();
+        var filtered = types.filter(function(t) { return t.toLowerCase().indexOf(q) !== -1; });
+
+        if (filtered.length > 0) {
+          WineCabinetApp.showToast('可选: ' + filtered.join('、'), 'info');
+        }
+      }
+
+      function createHistorySuggestion(inputEl, storageKey) {
+        var box = document.createElement('div');
+        box.style.cssText = 'position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--color-border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:200;max-height:200px;overflow-y:auto;margin-top:4px;display:none;';
+        if (inputEl.parentNode) {
+          inputEl.parentNode.style.position = 'relative';
+          inputEl.parentNode.appendChild(box);
+        }
+
+        function getHistory() {
+          try {
+            return JSON.parse(localStorage.getItem(storageKey) || '[]');
+          } catch(e) { return []; }
+        }
+
+        function saveHistory(val) {
+          var history = getHistory();
+          history = history.filter(function(h) { return h !== val; });
+          history.unshift(val);
+          if (history.length > 10) history = history.slice(0, 10);
+          localStorage.setItem(storageKey, JSON.stringify(history));
+        }
+
+        function hide() {
+          box.style.display = 'none';
+        }
+
+        function render() {
+          var history = getHistory();
+          box.innerHTML = '';
+          if (history.length === 0) return;
+          history.forEach(function(item) {
+            var el = document.createElement('div');
+            el.style.cssText = 'padding:10px 16px;cursor:pointer;font-size:14px;color:var(--color-text-primary);border-bottom:1px solid #f5f0e8;transition:background .15s;display:flex;justify-content:space-between;align-items:center;';
+            el.innerHTML = '<span>' + item + '</span><span style="font-size:12px;color:#999;">历史</span>';
+            el.addEventListener('click', function() {
+              inputEl.value = item;
+              hide();
+            });
+            box.appendChild(el);
+          });
+        }
+
+        inputEl.addEventListener('focus', function() {
+          if (!inputEl.value.trim()) {
+            render();
+            box.style.display = 'block';
+          }
+        });
+
+        inputEl.addEventListener('change', function() {
+          var val = inputEl.value.trim();
+          if (val) saveHistory(val);
+        });
+
+        inputEl.addEventListener('blur', function() {
+          setTimeout(hide, 200);
+        });
+      }
+
+      function initQuickTags() {
+        var tags = document.querySelectorAll('.quick-tag');
+        tags.forEach(function(tag) {
+          tag.addEventListener('click', function() {
+            var keyword = tag.getAttribute('data-tag');
+            var nameInput = document.getElementById('name');
+            nameInput.value = keyword;
+            nameInput.focus();
+            nameInput.dispatchEvent(new Event('input'));
+            tags.forEach(function(t) { t.classList.remove('active'); });
+            tag.classList.add('active');
+            setTimeout(function() { tag.classList.remove('active'); }, 1000);
+          });
+        });
+      }
+
+      function initCascadeSelector() {
+        var categories = WineDB.getWineCategories();
+        var level1 = document.getElementById('cascade-level1');
+        var level2 = document.getElementById('cascade-level2');
+        var level3 = document.getElementById('cascade-level3');
+        var result = document.getElementById('cascade-result');
+        var inputCategory = document.getElementById('category');
+        var inputSub = document.getElementById('subCategory');
+        var inputDetail = document.getElementById('detailType');
+
+        // 生成第一步按钮
+        var html1 = '';
+        Object.keys(categories).forEach(function(cat) {
+          html1 += '<button type="button" class="cascade-btn" data-value="' + cat + '">' + cat + '</button>';
+        });
+        level1.innerHTML = html1;
+
+        // 白酒香型短名到WINE_CATEGORIES全名的映射
+        var baijiuTypeMap = { '酱香': '酱香型', '浓香': '浓香型', '清香': '清香型', '兼香': '兼香型' };
+
+        function updateSteps(step) {
+          document.querySelectorAll('.cascade-step').forEach(function(s) {
+            s.classList.remove('active');
+            var stepNum = parseInt(s.getAttribute('data-step'));
+            if (stepNum <= step) s.classList.add('active');
+          });
+        }
+
+        // 点击大类
+        level1.addEventListener('click', function(e) {
+          var btn = e.target.closest('.cascade-btn');
+          if (!btn) return;
+          level1.querySelectorAll('.cascade-btn').forEach(function(b) { b.classList.remove('selected'); });
+          btn.classList.add('selected');
+          var cat = btn.getAttribute('data-value');
+          inputCategory.value = cat;
+          inputSub.value = '';
+          inputDetail.value = '';
+
+          updateSteps(1);
+
+          var subs = categories[cat];
+          if (subs) {
+            var html2 = '';
+            Object.keys(subs).forEach(function(sub) {
+              html2 += '<button type="button" class="cascade-btn" data-value="' + sub + '">' + sub + '</button>';
+            });
+            level2.innerHTML = html2;
+            level2.style.display = 'flex';
+          } else {
+            level2.style.display = 'none';
+          }
+          level3.style.display = 'none';
+          result.style.display = 'none';
+          updateYearField(cat);
+        });
+
+        // 点击子类
+        level2.addEventListener('click', function(e) {
+          var btn = e.target.closest('.cascade-btn');
+          if (!btn) return;
+          level2.querySelectorAll('.cascade-btn').forEach(function(b) { b.classList.remove('selected'); });
+          btn.classList.add('selected');
+          var sub = btn.getAttribute('data-value');
+          inputSub.value = sub;
+          inputDetail.value = '';
+
+          updateSteps(2);
+
+          var cat = inputCategory.value;
+          var subData = categories[cat] ? categories[cat][sub] : null;
+          if (subData && !isLeafNode(subData)) {
+            var html3 = '';
+            Object.keys(subData).forEach(function(detail) {
+              html3 += '<button type="button" class="cascade-btn" data-value="' + detail + '">' + detail + '</button>';
+            });
+            level3.innerHTML = html3;
+            level3.style.display = 'flex';
+            result.style.display = 'none';
+          } else {
+            level3.style.display = 'none';
+            showCascadeResult();
+          }
+          if (cat === '洋酒') updateYearField(sub);
+        });
+
+        // 点击具体类型
+        level3.addEventListener('click', function(e) {
+          var btn = e.target.closest('.cascade-btn');
+          if (!btn) return;
+          level3.querySelectorAll('.cascade-btn').forEach(function(b) { b.classList.remove('selected'); });
+          btn.classList.add('selected');
+          inputDetail.value = btn.getAttribute('data-value');
+          updateSteps(3);
+          showCascadeResult();
+        });
+
+        function isLeafNode(obj) {
+          return !obj || typeof obj !== 'object' || Object.keys(obj).length === 0;
+        }
+
+        function showCascadeResult() {
+          var parts = [];
+          if (inputCategory.value) parts.push(inputCategory.value);
+          if (inputSub.value) parts.push(inputSub.value);
+          if (inputDetail.value) parts.push(inputDetail.value);
+          result.innerHTML = '<span style="color: var(--color-primary); font-weight: 600;">' + parts.join(' › ') + '</span>' +
+            '<button type="button" onclick="resetCascade()" style="background:none;border:none;color:var(--color-text-tertiary);cursor:pointer;font-size:var(--text-sm);">修改</button>';
+          result.style.display = 'flex';
+          level1.style.display = 'none';
+          level2.style.display = 'none';
+          level3.style.display = 'none';
+          // 更新隐藏type字段（兼容旧逻辑）
+          var subVal = inputSub.value;
+          var detailVal = inputDetail.value;
+          var mappedType = detailVal || (baijiuTypeMap[subVal] ? baijiuTypeMap[subVal] : subVal) || inputCategory.value;
+          document.getElementById('type').value = mappedType;
+          // 检查保质期字段
+          checkNeedExpiry();
+        }
+
+        function updateYearField(key) {
+          var hint = WineDB.getYearFieldHint(key);
+          var yearLabel = document.querySelector('label[for="year"]');
+          var yearInput = document.getElementById('year');
+          if (yearLabel) yearLabel.textContent = hint.label;
+          if (yearInput) yearInput.placeholder = hint.placeholder;
+        }
+
+        // 检测AI识别后type字段变化，自动匹配级联
+        var lastTypeVal = '';
+        function pollTypeChange() {
+          var typeInput = document.getElementById('type');
+          var cascadeResult = document.getElementById('cascade-result');
+          if (typeInput && typeInput.value !== lastTypeVal) {
+            lastTypeVal = typeInput.value;
+            if (typeInput.value && cascadeResult.style.display === 'none') {
+              reverseMatchCascade(typeInput.value);
+            }
+          }
+        }
+        setInterval(pollTypeChange, 500);
+
+        // 暴露给外部使用
+        window._cascadeUpdateYearField = updateYearField;
+      }
+
+      function reverseMatchCascade(typeStr) {
+        if (!typeStr) return;
+        var categories = WineDB.getWineCategories();
+        var inputCategory = document.getElementById('category');
+        var inputSub = document.getElementById('subCategory');
+        var inputDetail = document.getElementById('detailType');
+        var typeToSubMap = { '酱香': '酱香型', '浓香': '浓香型', '清香': '清香型', '兼香': '兼香型', '其他': '其他' };
+
+        // 先检查是否直接匹配大类
+        if (categories[typeStr]) {
+          inputCategory.value = typeStr;
+          inputSub.value = '';
+          inputDetail.value = '';
+          showCascadeResultDirect(typeStr, '', '');
+          return;
+        }
+
+        // 搜索WINE_CATEGORIES找到匹配
+        Object.keys(categories).forEach(function(cat) {
+          if (inputCategory.value) return; // 已找到
+          var subs = categories[cat];
+          if (!subs) return;
+          Object.keys(subs).forEach(function(sub) {
+            if (inputCategory.value) return;
+            var subData = subs[sub];
+            if (subData && !isLeafNode(subData)) {
+              Object.keys(subData).forEach(function(detail) {
+                if (detail === typeStr) {
+                  inputCategory.value = cat;
+                  inputSub.value = sub;
+                  inputDetail.value = detail;
+                  showCascadeResultDirect(cat, sub, detail);
+                  return;
+                }
+              });
+            }
+            if (sub === typeStr || sub === (typeToSubMap[typeStr] || '')) {
+              inputCategory.value = cat;
+              inputSub.value = sub;
+              inputDetail.value = '';
+              showCascadeResultDirect(cat, sub, '');
+              return;
+            }
+          });
+        });
+
+        function isLeafNode(obj) {
+          return !obj || typeof obj !== 'object' || Object.keys(obj).length === 0;
+        }
+
+        function showCascadeResultDirect(cat, sub, detail) {
+          var result = document.getElementById('cascade-result');
+          var level1 = document.getElementById('cascade-level1');
+          var level2 = document.getElementById('cascade-level2');
+          var level3 = document.getElementById('cascade-level3');
+          var parts = [cat];
+          if (sub) parts.push(sub);
+          if (detail) parts.push(detail);
+          result.innerHTML = '<span style="color: var(--color-primary); font-weight: 600;">' + parts.join(' › ') + '</span>' +
+            '<button type="button" onclick="resetCascade()" style="background:none;border:none;color:var(--color-text-tertiary);cursor:pointer;font-size:var(--text-sm);">修改</button>';
+          result.style.display = 'flex';
+          level1.style.display = 'none';
+          level2.style.display = 'none';
+          level3.style.display = 'none';
+          // 更新年份字段
+          if (window._cascadeUpdateYearField) {
+            window._cascadeUpdateYearField(detail || sub || cat);
+          }
+        }
+      }
+
+      function setCascadeFromType(typeStr) {
+        resetCascade();
+        reverseMatchCascade(typeStr);
+      }
+
+      window.resetCascade = function() {
+        var level1 = document.getElementById('cascade-level1');
+        var level2 = document.getElementById('cascade-level2');
+        var level3 = document.getElementById('cascade-level3');
+        var result = document.getElementById('cascade-result');
+        level1.style.display = 'flex';
+        level2.style.display = 'none';
+        level3.style.display = 'none';
+        result.style.display = 'none';
+        document.getElementById('category').value = '';
+        document.getElementById('subCategory').value = '';
+        document.getElementById('detailType').value = '';
+        document.getElementById('type').value = '';
+        level1.querySelectorAll('.cascade-btn').forEach(function(b) { b.classList.remove('selected'); });
+        level2.querySelectorAll('.cascade-btn').forEach(function(b) { b.classList.remove('selected'); });
+        level3.querySelectorAll('.cascade-btn').forEach(function(b) { b.classList.remove('selected'); });
+        document.querySelectorAll('.cascade-step').forEach(function(s) { s.classList.remove('active'); });
+        document.querySelector('.cascade-step[data-step="1"]').classList.add('active');
+        var yearLabel = document.querySelector('label[for="year"]');
+        var yearInput = document.getElementById('year');
+        if (yearLabel) yearLabel.textContent = '年份/陈酿';
+        if (yearInput) yearInput.placeholder = '一般没有标注可留空';
+      };
+
+      // 供外部调用的检查保质期函数
+      var checkNeedExpiry = function() {
+        var degreeInput = document.getElementById('degree');
+        var categoryInput = document.getElementById('category');
+        var expiryGroup = document.getElementById('expiry-group');
+        if (!degreeInput || !categoryInput || !expiryGroup) return;
+        var degree = parseFloat(degreeInput.value);
+        var cat = categoryInput.value;
+        var isLowAlcohol = (degree && degree <= 20) || cat === '啤酒' || cat === '葡萄酒' || cat === '其他';
+        expiryGroup.style.display = isLowAlcohol ? 'block' : 'none';
+        if (window.lucide) lucide.createIcons();
+      };
+
+      function updateStdImageButton(wine) {
+        var container = document.getElementById('std-img-btn-container');
+        container.innerHTML = '';
+        if (!wine) return;
+        var btn = AIHelper.createStdImageButton(container, wine, uploader, { value: currentImage });
+        btn.addEventListener('click', function() {
+          var checkImg = setInterval(function() {
+            if (uploader.getImage() && uploader.getImage() !== currentImage) {
+              currentImage = uploader.getImage();
+              clearInterval(checkImg);
+            }
+          }, 300);
+          setTimeout(function() { clearInterval(checkImg); }, 15000);
+        });
+      }
+
+      function handleSave() {
+        var name = form.name.value.trim();
+        if (!name) {
+          WineCabinetApp.showToast('请输入酒名哦', 'error');
+          form.name.focus();
+          form.name.style.borderColor = 'var(--state-error)';
+          setTimeout(function() { form.name.style.borderColor = ''; }, 2000);
+          return;
+        }
+
+        var brand = form.brand.value.trim();
+        var categoryVal = document.getElementById('category').value;
+        var subCatVal = document.getElementById('subCategory').value;
+        var detailVal = document.getElementById('detailType').value;
+        var type = detailVal || subCatVal || categoryVal || '';
+
+        if (!brand || !type) {
+          var guess = WineDB.search(name, 1);
+          if (guess.length > 0) {
+            if (!brand) {
+              brand = guess[0].brand;
+              form.brand.value = brand;
+            }
+            if (!type) {
+              type = guess[0].type || '其他';
+              form.type.value = type;
+              if (!categoryVal) setCascadeFromType(type);
+              categoryVal = document.getElementById('category').value;
+              subCatVal = document.getElementById('subCategory').value;
+              detailVal = document.getElementById('detailType').value;
+              type = detailVal || subCatVal || categoryVal || type;
+            }
+          }
+        }
+
+        if (!type) type = '其他';
+
+        var wineData = {
+          name: name,
+          brand: brand || '未知品牌',
+          spec: form.spec.value.trim(),
+          type: type,
+          category: categoryVal,
+          subCategory: subCatVal,
+          detailType: detailVal,
+          degree: form.degree.value ? parseFloat(form.degree.value) : null,
+          capacity: form.capacity.value ? parseInt(form.capacity.value) : null,
+          year: form.year.value ? parseInt(form.year.value) : new Date().getFullYear(),
+          price: form.price.value ? parseFloat(form.price.value) : 0,
+          quantity: form.quantity.value ? parseInt(form.quantity.value) : 1,
+          status: form.status.value || 'cellared',
+          remaining: form.status.value === 'opened' ? (parseInt(form.capacity.value) || 500) : null,
+          openDate: form.status.value === 'opened' ? new Date().toISOString().slice(0, 10) : null,
+          origin: form.origin.value.trim(),
+          purchaseDate: form.purchaseDate.value,
+          expiryDate: document.getElementById('expiry-group').style.display !== 'none' ? form.expiryDate.value : null,
+          productionDate: '',
+          purchaseChannel: form.purchaseChannel.value.trim(),
+          location: form.location.value.trim(),
+          notes: form.notes.value.trim(),
+          image: currentImage || (matchedWine ? WineDB.generateFallbackImage(matchedWine) : null),
+          pinned: false,
+          tastingScore: null
+        };
+
+        var btn = document.getElementById('btn-save');
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+        btn.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;"><div style="width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:ai-spin 0.8s linear infinite;"></div> 保存中...</span>';
+
+        setTimeout(function() {
+          WineCabinetApp.addWine(wineData);
+          WineCabinetApp.showToast('添加成功', 'success');
+
+          setTimeout(function() {
+            void WineCabinetApp.showConfirm({
+              title: '添加成功！',
+              message: '还要继续添加吗？',
+              confirmText: '继续添加',
+              cancelText: '去酒柜',
+              type: 'success',
+              html: '<div style="text-align:left;padding:8px 0 16px;font-size:14px;line-height:1.8;">' +
+                '<button id="btn-add-same" style="width:100%;padding:14px;background:var(--color-primary);color:#fff;border:none;border-radius:var(--radius-md);font-size:15px;font-weight:600;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:8px;">' +
+                  '📋 继续加同品牌其他规格' +
+                '</button>' +
+                '<button id="btn-add-new" style="width:100%;padding:14px;background:var(--color-background-elevated);color:var(--color-text-primary);border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:15px;font-weight:500;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:8px;">' +
+                  '➕ 添加一款全新的酒' +
+                '</button>' +
+                '<button id="btn-goto-list" style="width:100%;padding:12px;background:transparent;color:var(--color-text-secondary);border:none;border-radius:var(--radius-md);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">' +
+                  '👉 去酒柜看看' +
+                '</button>' +
+              '</div>',
+              showCancelButton: false,
+              onBeforeShow: function(overlay) {
+                function resetForm(keepBrand) {
+                  if (!keepBrand) {
+                    document.getElementById('brand').value = '';
+                    document.getElementById('origin').value = '';
+                  }
+                  resetCascade();
+                  document.getElementById('name').value = '';
+                  document.getElementById('spec').value = '';
+                  document.getElementById('degree').value = '';
+                  document.getElementById('capacity').value = '';
+                  document.getElementById('price').value = '';
+                  document.getElementById('notes').value = '';
+                  document.getElementById('expiryDate').value = '';
+                  document.getElementById('expiry-group').style.display = 'none';
+                  currentImage = null;
+                  matchedWine = null;
+                  var preview = document.getElementById('image-preview');
+                  preview.innerHTML = '';
+                  preview.classList.add('hidden');
+                  document.getElementById('image-upload-area').classList.remove('hidden');
+                  var stdBtn = document.getElementById('btn-std-image');
+                  if (stdBtn) stdBtn.remove();
+                  document.getElementById('btn-save').disabled = false;
+                  document.getElementById('btn-save').style.opacity = '1';
+                  document.getElementById('btn-save').innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> 保存到我的酒柜</span>';
+                  document.getElementById('name').focus();
+                }
+                var btnSame = overlay.querySelector('#btn-add-same');
+                var btnNew = overlay.querySelector('#btn-add-new');
+                var btnList = overlay.querySelector('#btn-goto-list');
+                if (btnSame) {
+                  btnSame.addEventListener('click', function() {
+                    document.body.removeChild(overlay);
+                    resetForm(true);
+                  });
+                }
+                if (btnNew) {
+                  btnNew.addEventListener('click', function() {
+                    document.body.removeChild(overlay);
+                    resetForm(false);
+                  });
+                }
+                if (btnList) {
+                  btnList.addEventListener('click', function() {
+                    window.location.href = 'collection.html';
+                  });
+                }
+              }
+            });
+          }, 400);
+        }, 300);
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+  </script>
+</body>
+</html>
