@@ -1,0 +1,103 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的酒柜</title>
+    <link rel="stylesheet" href="../css/global.css">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .welcome-container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: var(--color-background);
+            position: relative;
+            overflow: hidden;
+        }
+        .welcome-container::before {
+            content: '';
+            position: absolute;
+            top: -80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 320px;
+            height: 320px;
+            background: radial-gradient(circle, var(--color-primary-lightest) 0%, transparent 70%);
+            opacity: 0.6;
+            border-radius: 50%;
+        }
+        .logo-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 24px;
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--color-text-inverse);
+            margin-bottom: 24px;
+            position: relative;
+            z-index: 1;
+            box-shadow: 0 8px 24px rgba(139, 105, 20, 0.25);
+        }
+        .app-title {
+            font-family: var(--font-display);
+            font-size: var(--text-3xl);
+            font-weight: var(--font-bold);
+            color: var(--color-text-primary);
+            margin: 0 0 8px;
+            position: relative;
+            z-index: 1;
+        }
+        .app-slogan {
+            font-size: var(--text-sm);
+            color: var(--color-text-secondary);
+            margin: 0 0 48px;
+            position: relative;
+            z-index: 1;
+        }
+        .enter-btn {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 280px;
+            height: 48px;
+            font-size: var(--text-base);
+            font-weight: var(--font-semibold);
+        }
+    </style>
+</head>
+<body>
+    <div class="welcome-container">
+        <div class="logo-icon">
+            <i data-lucide="wine" style="width: 40px; height: 40px;"></i>
+        </div>
+        <h1 class="app-title">我的酒柜</h1>
+        <p class="app-slogan">品味舍得，珍藏时光</p>
+        <button id="enter-btn" class="btn btn-primary enter-btn">
+            开始使用
+        </button>
+    </div>
+
+    <script src="../js/datastore.js"></script>
+    <script src="../js/app.js"></script>
+    <script src="../js/onboarding.js?v=20260702f"></script>
+    <script>
+        document.getElementById('enter-btn').addEventListener('click', function() {
+            window.location.href = 'home.html';
+        });
+
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+
+        WineCabinetApp.initTheme();
+    </script>
+</body>
+</html>
