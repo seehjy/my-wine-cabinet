@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>酒品详情-我的酒柜</title>
+  <link rel="stylesheet" href="../css/global.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <main class="page-container">
+    <div class="status-bar-placeholder"></div>
+
+    <div id="main-content" style="padding-bottom: 24px;">
+      <div id="wine-detail-content"></div>
+
+      <div id="error-state" class="empty-state" style="display: none;">
+        <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <p class="empty-state-title">酒品不存在</p>
+        <p class="empty-state-desc">未找到对应的酒品记录</p>
+        <a href="collection.html" class="btn btn-primary" style="margin-top: 20px;">返回酒柜</a>
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/datastore.js"></script>
+  <script src="../js/app.js"></script>
+  <script src="../js/ui.js"></script>
+  <script src="../js/onboarding.js?v=20260702f"></script>
+  <script>
+    function safeCreateIcons() {
+      if (window.lucide && typeof lucide.createIcons === 'function') {
+        try { lucide.createIcons(); } catch(e) {}
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() {
+        safeCreateIcons();
+        initDetailPage();
+      });
+    } else {
+      safeCreateIcons();
+      initDetailPage();
+    }
+
+    function getQueryParam(name) {
+      var urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(name);
+    }
+
+    function initDetailPage() {
+      var bottomNav = document.querySelector('.bottom-nav');
+      if (bottomNav) bottomNav.remove();
+
+      var id = getQueryParam('id');
+      if (!id) {
+        showError();
+        return;
+      }
+
+      var wine = WineCabinetApp.getWineById(id);
+      if (!wine) {
+        showError();
+        return;
+      }
+
+      currentWine = wine;
+
+      renderWineDetail(wine);
+      bindEvents(wine);
+
+      try {
+        self.addEventListener('wine-data-updated', function() {
+          var updated = WineCabinetApp.getWineById(id);
+          if (updated) renderWineDetail(updated);
+        });
+      } catch(e) {}
+    }
+
+    function showError() {
+      document.getElementById('wine-detail-content').style.display = 'none';
+      document.getElementById('error-state').style.display = 'block';
+    }
+
+    var currentWine = null;
+
+    window.goBack = function() {
+      if (window.history.length > 1) {
+        window.history.back();
+      } else {
+        window.location.href = 'home.html';
+      }
+    };
+
+    window.showMoreMenu = function() {
+      if (currentWine) {
+        showWineActionSheet(currentWine);
+      }
+    };
+
+    function getSameWineVariants(wine) {
+      var data = WineCabinetApp.getData();
+      var allWines = data.wines || [];
+      var brandKey = (wine.brand || '').trim().toLowerCase();
+      var nameKey = (wine.name || '').trim().toLowerCase();
+
+      return allWines.filter(function(w) {
+        var b = (w.brand || '').trim().toLowerCase();
+        var n = (w.name || '').trim().toLowerCase();
+        return b === brandKey && n === nameKey;
+      }).sort(function(a, b) {
+        var statusOrder = { cellared: 0, opened: 1, finished: 2 };
+        var sa = statusOrder[a.status] !== undefined ? statusOrder[a.status] : 9;
+        var sb = statusOrder[b.status] !== undefined ? statusOrder[b.status] : 9;
+        if (sa !== sb) return sa - sb;
+        return (b.capacity || 0) - (a.capacity || 0);
+      });
+    }
+
+    function renderWineDetail(wine) {
+      var variants = getSameWineVariants(wine);
+      var totalQty = variants.reduce(function(s, w) { return s + (w.quantity || 1); }, 0);
+      var totalValue = variants.reduce(function(s, w) { return s + (w.price || 0) * (w.quantity || 1); }, 0);
+
+      var heroHtml = renderHero(wine, totalQty, totalValue, variants.length);
+      var variantsHtml = renderVariants(variants, wine.id);
+
+      var container = document.getElementById('wine-detail-content');
+      container.innerHTML = heroHtml + variantsHtml;
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function renderHero(wine, totalQty, totalValue, variantCount) {
+      var statusText = '在藏';
+      var statusClass = 'status-cellared';
+      if (wine.status === 'opened') { statusText = '已开瓶'; statusClass = 'status-opened'; }
+      if (wine.status === 'finished') { statusText = '已饮完'; statusClass = 'status-finished'; }
+
+      var imageUrl = wine.image || (window.WineDB ? WineDB.generateFallbackImage(wine) : null) || '';
+
+      var heroCategoryDisplay = '';
+      if (wine.detailType) {
+        heroCategoryDisplay = wine.detailType;
+      } else if (wine.subCategory) {
+        heroCategoryDisplay = wine.subCategory;
+      } else if (wine.category) {
+        heroCategoryDisplay = wine.category;
+      } else if (wine.type) {
+        heroCategoryDisplay = wine.type;
+      }
+
+      return '<div style="position: relative;">' +
+        '<div style="width: 100%; height: 320px; background: linear-gradient(180deg, var(--color-primary-lightest) 0%, rgba(232,217,176,0.3) 100%); overflow: hidden; position: relative;">' +
+          (imageUrl ? '<img src="' + imageUrl + '" style="width: 100%; height: 100%; object-fit: contain; display: block; max-width: 100%; max-height: 100%;" alt="' + WineCabinetApp.escapeHtml(wine.name) + '">' :
+            '<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">' +
+              '<i data-lucide="wine" style="width: 80px; height: 80px; color: var(--color-primary); opacity: 0.25;"></i>' +
+            '</div>') +
+          '<div style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0) 40%, rgba(255,250,240,0.95) 80%, var(--color-background-page) 100%);"></div>' +
+        '</div>' +
+        '<div style="position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; z-index: 20;">' +
+          '<button type="button" id="detail-back-btn" onclick="goBack()" style="width: 40px; height: 40px; border-radius: var(--radius-full); background: rgba(255,255,255,0.9); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.08); color: var(--color-text-primary); -webkit-tap-highlight-color: transparent;">' +
+            '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>' +
+          '</button>' +
+          '<button type="button" id="detail-more-btn" onclick="showMoreMenu()" style="width: 40px; height: 40px; border-radius: var(--radius-full); background: rgba(255,255,255,0.9); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.08); color: var(--color-text-primary); -webkit-tap-highlight-color: transparent;">' +
+            '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>' +
+          '</button>' +
+        '</div>' +
+        '<div style="padding: 0 16px 16px; margin-top: -48px; position: relative; z-index: 5;">' +
+          '<div style="display: flex; align-items: flex-start; gap: 16px;">' +
+            '<div style="width: 80px; height: 80px; border-radius: var(--radius-lg); background: var(--color-background-elevated); box-shadow: 0 4px 16px rgba(0,0,0,0.08); border: 3px solid var(--color-background-elevated); display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden;">' +
+              (imageUrl ? '<img src="' + imageUrl + '" style="width: 100%; height: 100%; object-fit: cover;" alt="">' :
+                '<i data-lucide="wine" style="width: 36px; height: 36px; color: var(--color-primary); opacity: 0.4;"></i>') +
+            '</div>' +
+            '<div style="flex: 1; min-width: 0; padding-top: 32px;">' +
+              '<div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px;">' +
+                '<span style="font-size: var(--text-sm); color: var(--color-text-secondary);">' + WineCabinetApp.escapeHtml(wine.brand || '未知品牌') + '</span>' +
+                (heroCategoryDisplay ? '<span style="font-size: var(--text-sm); color: var(--color-text-tertiary);">· ' + WineCabinetApp.escapeHtml(heroCategoryDisplay) + '</span>' : '') +
+              '</div>' +
+              '<h1 style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--color-text-primary); margin: 0 0 6px; font-family: var(--font-display); line-height: 1.3;">' + WineCabinetApp.escapeHtml(wine.name) + '</h1>' +
+              '<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">' +
+                '<span class="status-badge ' + statusClass + '">' + statusText + '</span>' +
+                (wine.spec ? '<span style="font-size: var(--text-xs); padding: 2px 8px; background: var(--color-background-sunken); border-radius: var(--radius-full); color: var(--color-text-secondary);">' + WineCabinetApp.escapeHtml(wine.spec) + '</span>' : '') +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="margin-top: 16px; padding: 14px 16px; background: var(--color-background-elevated); border-radius: var(--radius-lg); display: flex; align-items: center; gap: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.04);">' +
+            '<div style="flex: 1; text-align: center;">' +
+              '<div style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--color-primary); font-family: var(--font-display);">¥' + Math.round(totalValue).toLocaleString() + '</div>' +
+              '<div style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 2px;">总价值</div>' +
+            '</div>' +
+            '<div style="width: 1px; height: 36px; background: var(--color-border-light);"></div>' +
+            '<div style="flex: 1; text-align: center;">' +
+              '<div style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--color-text-primary); font-family: var(--font-display);">' + totalQty + '</div>' +
+              '<div style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 2px;">总瓶数</div>' +
+            '</div>' +
+            '<div style="width: 1px; height: 36px; background: var(--color-border-light);"></div>' +
+            '<div style="flex: 1; text-align: center;">' +
+              '<div style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--color-text-primary); font-family: var(--font-display);">' + variantCount + '</div>' +
+              '<div style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-top: 2px;">版本数</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }
+
+    function renderVariants(variants, currentWineId) {
+      var html = '<div style="padding: 0 16px;">' +
+        '<h2 style="font-size: var(--text-lg); font-weight: var(--font-bold); margin: 8px 0 12px; display: flex; align-items: center; gap: 8px;">' +
+          '<i data-lucide="layers" style="width: 20px; height: 20px; color: var(--color-primary);"></i>' +
+          '规格 / 批次' +
+        '</h2>';
+
+      variants.forEach(function(v, idx) {
+        html += renderVariantCard(v, idx);
+      });
+
+      html += '<div style="margin-top: 16px;">' +
+        '<button type="button" onclick="location.href=\'add-wine.html?mode=supplement&wineId=' + currentWineId + '&from=detail\'" class="btn btn-ghost btn-block" style="padding: 14px; border: 2px dashed var(--color-border); display: flex; align-items: center; justify-content: center; gap: 8px;">' +
+          '<i data-lucide="plus" style="width: 18px; height: 18px;"></i>' +
+          '<span>添加新规格/批次</span>' +
+        '</button>' +
+      '</div>';
+
+      html += '</div>';
+      return html;
+    }
+
+    function renderVariantCard(w, idx) {
+      var statusText = '在藏';
+      var statusClass = 'status-cellared';
+      var dimOpacity = '1';
+      if (w.status === 'opened') { statusText = '已开瓶'; statusClass = 'status-opened'; }
+      if (w.status === 'finished') { statusText = '已饮完'; statusClass = 'status-finished'; dimOpacity = '0.5'; }
+
+      var priceStr = w.price ? '¥' + Math.round(w.price).toLocaleString() + '/瓶' : '—';
+      var qtyStr = (w.quantity || 1) + ' 瓶';
+      var totalStr = w.price ? '小计 ¥' + Math.round((w.price || 0) * (w.quantity || 1)).toLocaleString() : '';
+
+      var progressHtml = '';
+      if (w.status === 'opened' && w.capacity && w.remaining !== undefined && w.remaining !== null) {
+        var percent = Math.max(0, Math.min(100, Math.round((w.remaining / w.capacity) * 100)));
+        progressHtml = '<div style="margin-top: 10px;">' +
+          '<div style="display: flex; justify-content: space-between; margin-bottom: 4px;">' +
+            '<span style="font-size: var(--text-xs); color: var(--color-text-tertiary);">剩余 ' + w.remaining + 'mL</span>' +
+            '<span style="font-size: var(--text-xs); color: var(--color-text-tertiary);">' + percent + '%</span>' +
+          '</div>' +
+          '<div style="height: 6px; background: var(--color-background-sunken); border-radius: var(--radius-full); overflow: hidden;">' +
+            '<div style="width: ' + percent + '%; height: 100%; background: var(--color-primary); border-radius: var(--radius-full); transition: width 0.3s ease;"></div>' +
+          '</div>' +
+        '</div>';
+      }
+
+      var expiryHtml = '';
+      if (w.expiryDate) {
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        var expiryDate = new Date(w.expiryDate);
+        expiryDate.setHours(0, 0, 0, 0);
+        var diffDays = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        var expiryLabel = '';
+        var expiryColor = 'var(--color-text-secondary)';
+        if (diffDays < 0) { expiryLabel = '⚠️ 已过期' + Math.abs(diffDays) + '天'; expiryColor = 'var(--state-error)'; }
+        else if (diffDays <= 30) { expiryLabel = '还剩' + diffDays + '天到期'; expiryColor = 'var(--state-warning)'; }
+        else { expiryLabel = w.expiryDate + ' 到期'; }
+        expiryHtml = '<div style="display: flex; align-items: center; gap: 4px; font-size: var(--text-xs); color: ' + expiryColor + '; margin-top: 6px;">' +
+          '<i data-lucide="clock" style="width: 12px; height: 12px;"></i>' +
+          '<span>' + expiryLabel + '</span>' +
+        '</div>';
+      }
+
+      var categoryDisplay = '';
+      if (w.category && w.subCategory && w.detailType) {
+        categoryDisplay = w.category + ' › ' + w.subCategory + ' › ' + w.detailType;
+      } else if (w.category && w.detailType) {
+        categoryDisplay = w.category + ' › ' + w.detailType;
+      } else if (w.category && w.subCategory) {
+        categoryDisplay = w.category + ' › ' + w.subCategory;
+      } else if (w.detailType) {
+        categoryDisplay = w.detailType;
+      } else if (w.subCategory) {
+        categoryDisplay = w.subCategory;
+      } else if (w.category) {
+        categoryDisplay = w.category;
+      } else if (w.type) {
+        categoryDisplay = w.type;
+      }
+
+      var infoItems = [];
+      if (w.capacity) infoItems.push({ icon: 'droplet', label: '容量', value: w.capacity + 'mL' });
+      if (w.degree !== undefined && w.degree !== null) infoItems.push({ icon: 'thermometer', label: '度数', value: w.degree + '°' });
+      if (categoryDisplay) infoItems.push({ icon: 'wine', label: '类型', value: categoryDisplay });
+      if (w.year) infoItems.push({ icon: 'calendar-days', label: '年份', value: w.year });
+      if (w.purchaseDate) infoItems.push({ icon: 'calendar', label: '购入', value: w.purchaseDate });
+      if (w.purchaseChannel) infoItems.push({ icon: 'shopping-cart', label: '渠道', value: w.purchaseChannel });
+      if (w.location) infoItems.push({ icon: 'warehouse', label: '位置', value: w.location });
+      if (w.origin) infoItems.push({ icon: 'map-pin', label: '产地', value: w.origin });
+      if (w.code) infoItems.push({ icon: 'tag', label: '编号', value: w.code });
+
+      var infoHtml = '';
+      if (infoItems.length > 0) {
+        infoHtml = '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 12px; margin-top: 12px;">';
+        infoItems.forEach(function(item) {
+          infoHtml += '<div style="display: flex; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--color-text-secondary);">' +
+            '<i data-lucide="' + item.icon + '" style="width: 13px; height: 13px; opacity: 0.6; flex-shrink: 0;"></i>' +
+            '<span style="color: var(--color-text-tertiary);">' + item.label + ': </span>' +
+            '<span style="color: var(--color-text-primary); font-weight: var(--font-medium);">' + WineCabinetApp.escapeHtml(String(item.value)) + '</span>' +
+          '</div>';
+        });
+        infoHtml += '</div>';
+      }
+
+      var specBadge = '';
+      if (w.spec) {
+        specBadge = '<span style="font-size: var(--text-xs); padding: 2px 8px; background: rgba(139,105,20,0.08); color: var(--color-primary); border-radius: var(--radius-full); font-weight: var(--font-medium);">' + WineCabinetApp.escapeHtml(w.spec) + '</span>';
+      }
+
+      var notesHtml = '';
+      if (w.notes || (w.noteImages && w.noteImages.length > 0)) {
+        notesHtml = '<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--color-border-light);">';
+        if (w.notes) {
+          notesHtml += '<div style="font-size: var(--text-sm); color: var(--color-text-secondary); line-height: 1.6;">' + WineCabinetApp.escapeHtml(w.notes) + '</div>';
+        }
+        if (w.noteImages && w.noteImages.length > 0) {
+          var imgGap = w.notes ? 'margin-top: 10px;' : '';
+          notesHtml += '<div style="display: flex; flex-wrap: wrap; gap: 6px; ' + imgGap + '">';
+          w.noteImages.forEach(function(img, i) {
+            notesHtml += '<div class="note-img-item" data-src="' + img + '" style="width: 80px; height: 80px; border-radius: var(--radius-sm); overflow: hidden; cursor: pointer; flex-shrink: 0;">' +
+              '<img src="' + img + '" style="width: 100%; height: 100%; object-fit: cover;" alt="备注图片' + (i + 1) + '">' +
+            '</div>';
+          });
+          notesHtml += '</div>';
+        }
+        notesHtml += '</div>';
+      }
+
+      var actionBtnsHtml = '<div style="display: flex; gap: 4px; flex-shrink: 0;">';
+      if (w.status === 'cellared') {
+        actionBtnsHtml += '<button type="button" class="variant-action-btn" data-id="' + w.id + '" data-action="open" style="padding: 0 12px; height: 36px; border: none; background: var(--color-primary); border-radius: var(--radius-md); cursor: pointer; display: flex; align-items: center; justify-content: center; color: #fff; font-size: var(--text-xs); font-weight: var(--font-medium); gap: 4px;">' +
+          '<i data-lucide="play-circle" style="width: 14px; height: 14px;"></i>' +
+          '<span>开瓶</span>' +
+        '</button>';
+      } else if (w.status === 'opened') {
+        actionBtnsHtml += '<button type="button" class="variant-action-btn" data-id="' + w.id + '" data-action="drink" style="padding: 0 12px; height: 36px; border: none; background: var(--color-primary); border-radius: var(--radius-md); cursor: pointer; display: flex; align-items: center; justify-content: center; color: #fff; font-size: var(--text-xs); font-weight: var(--font-medium); gap: 4px;">' +
+          '<i data-lucide="beaker" style="width: 14px; height: 14px;"></i>' +
+          '<span>饮用</span>' +
+        '</button>';
+      }
+      actionBtnsHtml += '<button type="button" class="variant-action-btn" data-id="' + w.id + '" data-action="edit" style="width: 36px; height: 36px; border: none; background: var(--color-background-sunken); border-radius: var(--radius-md); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--color-text-secondary);" title="编辑">' +
+        '<i data-lucide="pencil" style="width: 16px; height: 16px;"></i>' +
+      '</button>' +
+      '<button type="button" class="variant-action-btn" data-id="' + w.id + '" data-action="more" style="width: 36px; height: 36px; border: none; background: var(--color-background-sunken); border-radius: var(--radius-md); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--color-text-secondary);" title="更多">' +
+        '<i data-lucide="more-vertical" style="width: 16px; height: 16px;"></i>' +
+      '</button>' +
+      '</div>';
+
+      return '<div class="card" style="margin-bottom: 12px; padding: 16px; opacity: ' + dimOpacity + '; transition: opacity 0.2s;">' +
+        '<div style="display: flex; align-items: flex-start; gap: 12px;">' +
+          '<div style="flex: 1; min-width: 0;">' +
+            '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">' +
+              '<span class="status-badge ' + statusClass + '" style="font-size: var(--text-xs);">' + statusText + '</span>' +
+              specBadge +
+              '<span style="font-size: var(--text-xs); color: var(--color-text-tertiary);">#' + (idx + 1) + '</span>' +
+            '</div>' +
+            '<div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px;">' +
+              '<span style="font-size: var(--text-lg); font-weight: var(--font-bold); color: var(--color-text-primary); font-family: var(--font-display);">' + priceStr + '</span>' +
+              '<span style="font-size: var(--text-sm); color: var(--color-text-secondary);">' + qtyStr + '</span>' +
+              (totalStr ? '<span style="font-size: var(--text-xs); color: var(--color-text-tertiary);">' + totalStr + '</span>' : '') +
+            '</div>' +
+          '</div>' +
+          actionBtnsHtml +
+        '</div>' +
+        progressHtml +
+        infoHtml +
+        expiryHtml +
+        notesHtml +
+      '</div>';
+    }
+
+    function showWineActionSheet(wine) {
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(44,24,16,0.5);z-index:9998;display:flex;align-items:flex-end;justify-content:center;animation:actionsheet-fade-in 0.2s ease;';
+
+      var items = [];
+
+      items.push({ icon: 'image', label: '编辑图片', action: function() {
+        window.location.href = 'edit-wine-info.html?id=' + wine.id;
+      }});
+      items.push({ icon: 'edit-3', label: '编辑品牌/系列/度数', action: function() {
+        window.location.href = 'edit-wine-info.html?id=' + wine.id;
+      }});
+      items.push({ icon: 'share-2', label: '分享', action: function() {
+        WineCabinetApp.showToast('分享功能开发中', 'info');
+      }});
+      items.push({ icon: 'tag', label: '复制信息', action: function() {
+        var text = wine.brand + ' ' + wine.name + ' ' + wine.degree + '度 ' + wine.capacity + 'mL';
+        navigator.clipboard && navigator.clipboard.writeText(text);
+        WineCabinetApp.showToast('已复制', 'success');
+      }});
+      items.push({ icon: 'trash-2', label: '删除所有规格', color: 'var(--state-error)', action: function() {
+        WineCabinetApp.showConfirm({
+          title: '确认删除？',
+          message: '删除后无法恢复',
+          confirmText: '删除',
+          cancelText: '取消',
+          type: 'danger',
+          onConfirm: function() {
+            var variants = getSameWineVariants(wine);
+            variants.forEach(function(v) {
+              WineCabinetApp.deleteWine(v.id);
+            });
+            WineCabinetApp.showToast('已删除', 'success');
+            setTimeout(function() { window.location.href = 'home.html'; }, 600);
+          }
+        });
+      }});
+
+      var itemsHtml = items.map(function(item, i) {
+        var border = i < items.length - 1 ? 'border-bottom: 1px solid var(--color-border-light);' : '';
+        var color = item.color ? 'color: ' + item.color + ';' : 'color: var(--color-text-primary);';
+        return '<div class="action-item" data-index="' + i + '" style="display:flex;align-items:center;gap:12px;padding:16px 20px;' + border + 'cursor:pointer;transition:background 0.15s;">' +
+          '<i data-lucide="' + item.icon + '" style="width:20px;height:20px;flex-shrink:0;' + (item.color ? 'color:' + item.color : 'color:var(--color-text-secondary)') + ';"></i>' +
+          '<span style="font-size:var(--text-base);' + color + 'flex:1;font-weight: var(--font-medium);">' + item.label + '</span>' +
+        '</div>';
+      }).join('');
+
+      overlay.innerHTML = '<div style="width:100%;max-width:500px;background:var(--color-background-elevated);border-radius:var(--radius-lg) var(--radius-lg) 0 0;animation:actionsheet-slide-up 0.25s ease;">' +
+        '<div style="display:flex;justify-content:center;padding:10px 0 6px;"><div style="width:36px;height:4px;border-radius:2px;background:var(--color-border);"></div></div>' +
+        itemsHtml +
+        '<div style="height:8px;background:var(--color-background-sunken);"></div>' +
+        '<div class="action-cancel" style="display:flex;align-items:center;justify-content:center;padding:16px 20px;cursor:pointer;transition:background 0.15s;">' +
+          '<span style="font-size:var(--text-base);color:var(--color-text-secondary);font-weight:var(--font-medium);">取消</span>' +
+        '</div>' +
+        '<div style="height:env(safe-area-inset-bottom,0);"></div>' +
+      '</div>';
+
+      document.body.appendChild(overlay);
+      if (window.lucide) lucide.createIcons();
+      if (!document.getElementById('actionsheet-styles')) {
+        var style = document.createElement('style');
+        style.id = 'actionsheet-styles';
+        style.textContent = '@keyframes actionsheet-fade-in{from{opacity:0}to{opacity:1}}@keyframes actionsheet-slide-up{from{transform:translateY(100%)}to{transform:translateY(0)}}.action-item:active{background:var(--color-background-sunken);}.action-cancel:active{background:var(--color-background-sunken);}';
+        document.head.appendChild(style);
+      }
+
+      function close() {
+        overlay.style.animation = 'actionsheet-fade-in 0.15s ease reverse forwards';
+        overlay.firstElementChild.style.animation = 'actionsheet-slide-up 0.2s ease reverse forwards';
+        setTimeout(function() { if (overlay.parentNode) overlay.remove(); }, 200);
+      }
+      overlay.addEventListener('click', function(e) { if (e.target === overlay) close(); });
+      overlay.querySelector('.action-cancel').addEventListener('click', close);
+      overlay.querySelectorAll('.action-item').forEach(function(el) {
+        el.addEventListener('click', function() {
+          var idx = parseInt(el.getAttribute('data-index'));
+          close();
+          setTimeout(function() { if (items[idx] && items[idx].action) items[idx].action(); }, 200);
+        });
+      });
+    }
+    function showVariantActionSheet(wine) {
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(44,24,16,0.5);z-index:9998;display:flex;align-items:flex-end;justify-content:center;animation:actionsheet-fade-in 0.2s ease;';
+
+      var items = [];
+
+      if (wine.status === 'cellared') {
+        items.push({ icon: 'play-circle', label: '开瓶饮用', color: 'var(--color-primary)', action: function() {
+          WineCabinetApp.updateWine(wine.id, { status: 'opened', openDate: new Date().toISOString().slice(0, 10), remaining: wine.capacity || 500 });
+          WineCabinetApp.showToast('已开瓶', 'success');
+        }});
+      }
+      if (wine.status === 'opened') {
+        items.push({ icon: 'beaker', label: '添加饮用记录', color: 'var(--color-primary)', action: function() {
+          window.location.href = 'drinking-form.html?wineId=' + wine.id;
+        }});
+        items.push({ icon: 'check-circle-2', label: '标记为已饮完', color: 'var(--state-success)', action: function() {
+          WineCabinetApp.showConfirm({
+            title: '确认饮完？',
+            message: '确认这瓶酒已经喝完了吗？',
+            confirmText: '确认饮完',
+            cancelText: '再等等',
+            type: 'warning',
+            onConfirm: function() {
+              WineCabinetApp.updateWine(wine.id, { status: 'finished', remaining: 0 });
+              WineCabinetApp.showToast('已标记为饮完', 'success');
+            }
+          });
+        }});
+      }
+      items.push({ icon: 'edit-3', label: '编辑规格信息', action: function() {
+        window.location.href = 'edit-wine.html?id=' + wine.id;
+      }});
+      items.push({ icon: 'trash-2', label: '删除此规格', color: 'var(--state-error)', action: function() {
+        WineCabinetApp.showConfirm({
+          title: '确认删除？',
+          message: '删除后无法恢复，确定要删除这个规格吗？',
+          confirmText: '删除',
+          cancelText: '取消',
+          type: 'danger',
+          onConfirm: function() {
+            WineCabinetApp.deleteWine(wine.id);
+            WineCabinetApp.showToast('已删除', 'success');
+            setTimeout(function() {
+              window.location.href = 'collection.html';
+            }, 1000);
+          }
+        });
+      }});
+
+      var itemsHtml = items.map(function(item, i) {
+        var border = i < items.length - 1 ? 'border-bottom: 1px solid var(--color-border-light);' : '';
+        var color = item.color ? 'color: ' + item.color + ';' : 'color: var(--color-text-primary);';
+        return '<div class="action-item" data-index="' + i + '" style="display:flex;align-items:center;gap:12px;padding:16px 20px;' + border + 'cursor:pointer;transition:background 0.15s;">' +
+          '<i data-lucide="' + item.icon + '" style="width:20px;height:20px;flex-shrink:0;' + (item.color ? 'color:' + item.color : 'color:var(--color-text-secondary)') + ';"></i>' +
+          '<span style="font-size:var(--text-base);' + color + 'flex:1;font-weight: var(--font-medium);">' + item.label + '</span>' +
+        '</div>';
+      }).join('');
+
+      overlay.innerHTML = '<div style="width:100%;max-width:500px;background:var(--color-background-elevated);border-radius:var(--radius-lg) var(--radius-lg) 0 0;animation:actionsheet-slide-up 0.25s ease;">' +
+        '<div style="display:flex;justify-content:center;padding:10px 0 6px;"><div style="width:36px;height:4px;border-radius:2px;background:var(--color-border);"></div></div>' +
+        itemsHtml +
+        '<div style="height:8px;background:var(--color-background-sunken);"></div>' +
+        '<div class="action-cancel" style="display:flex;align-items:center;justify-content:center;padding:16px 20px;cursor:pointer;transition:background 0.15s;">' +
+          '<span style="font-size:var(--text-base);color:var(--color-text-secondary);font-weight:var(--font-medium);">取消</span>' +
+        '</div>' +
+        '<div style="height:env(safe-area-inset-bottom,0);"></div>' +
+      '</div>';
+
+      document.body.appendChild(overlay);
+      if (window.lucide) lucide.createIcons();
+
+      function close() {
+        overlay.style.animation = 'actionsheet-fade-in 0.15s ease reverse forwards';
+        overlay.firstElementChild.style.animation = 'actionsheet-slide-up 0.2s ease reverse forwards';
+        setTimeout(function() { if (overlay.parentNode) overlay.remove(); }, 200);
+      }
+      overlay.addEventListener('click', function(e) { if (e.target === overlay) close(); });
+      overlay.querySelector('.action-cancel').addEventListener('click', close);
+      overlay.querySelectorAll('.action-item').forEach(function(el) {
+        el.addEventListener('click', function() {
+          var idx = parseInt(el.getAttribute('data-index'));
+          close();
+          setTimeout(function() { if (items[idx] && items[idx].action) items[idx].action(); }, 200);
+        });
+      });
+    }
+
+    function bindEvents(wine) {
+      var actionBtns = document.querySelectorAll('.variant-action-btn');
+      actionBtns.forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          var id = btn.getAttribute('data-id');
+          var action = btn.getAttribute('data-action');
+          var targetWine = WineCabinetApp.getWineById(id);
+          if (!targetWine) return;
+
+          if (action === 'edit') {
+            window.location.href = 'edit-wine.html?id=' + id;
+          } else if (action === 'more') {
+            showVariantActionSheet(targetWine);
+          } else if (action === 'open') {
+            WineCabinetApp.updateWine(id, { status: 'opened', openDate: new Date().toISOString().slice(0, 10), remaining: targetWine.capacity || 500 });
+            WineCabinetApp.showToast('已开瓶', 'success');
+          } else if (action === 'drink') {
+            window.location.href = 'drinking-form.html?wineId=' + id;
+          }
+        });
+      });
+    }
+  </script>
+</body>
+</html>
