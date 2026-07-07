@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>添加酒品-我的酒柜</title>
-  <link rel="stylesheet" href="../css/global.css">
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/css/global.css">
+  <script src="/lib/tailwind.min.js"></script>
+  <script src="/lib/lucide.min.js"></script>
   <style>
     .ai-filled { animation: ai-flash 1.5s ease; }
     @keyframes ai-flash { 
@@ -468,13 +468,21 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label" for="year">年份/陈酿</label>
-              <input type="number" id="year" name="year" class="form-input" placeholder="一般没有标注可留空" min="1900" max="2100">
+              <label class="form-label" for="agingYears" id="agingYears-label">陈酿年数</label>
+              <input type="number" id="agingYears" name="agingYears" class="form-input" placeholder="如：12（酒标没标就留空）" min="1" max="100">
             </div>
+            <div class="form-group">
+              <label class="form-label" for="productionYear">生产年份</label>
+              <input type="number" id="productionYear" name="productionYear" class="form-input" placeholder="如：2020（4位数年份）" min="1900" max="2100">
+            </div>
+          </div>
+
+          <div class="form-row">
             <div class="form-group">
               <label class="form-label" for="quantity">数量</label>
               <input type="number" id="quantity" name="quantity" class="form-input" value="1" min="1">
             </div>
+            <div class="form-group"></div>
           </div>
 
           <div class="form-row">
@@ -542,12 +550,12 @@
     </button>
   </div>
 
-  <script src="../js/datastore.js"></script>
-  <script src="../js/app.js"></script>
-  <script src="../js/ui.js"></script>
-  <script src="../js/onboarding.js?v=20260702f"></script>
-  <script src="../js/wine-db.js?v=20260702f"></script>
-  <script src="../js/ai-helper.js?v=20260702f"></script>
+  <script src="/js/datastore.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/ui.js"></script>
+  <script src="/js/onboarding.js?v=20260702f"></script>
+  <script src="/js/wine-db.js?v=20260702f"></script>
+  <script src="/js/ai-helper.js?v=20260702f"></script>
   <script>
     window.handleBackFromSupplement = function() {
       var urlParams = new URLSearchParams(window.location.search);
@@ -1005,7 +1013,8 @@
         form.spec.value = document.getElementById('diff-spec').value || w.spec || '';
         form.degree.value = w.degree || '';
         form.capacity.value = document.getElementById('diff-capacity').value || w.capacity || '';
-        form.year.value = w.year || new Date().getFullYear();
+        form.agingYears.value = w.agingYears || '';
+        form.productionYear.value = w.productionYear || w.year || new Date().getFullYear();
         form.quantity.value = document.getElementById('diff-quantity').value || 1;
         form.price.value = document.getElementById('diff-price').value || w.price || '';
         form.status.value = 'cellared';
@@ -1050,7 +1059,7 @@
 
       function initNewWineForm() {
         form = document.getElementById('add-wine-form');
-        document.getElementById('year').value = new Date().getFullYear();
+        document.getElementById('productionYear').value = new Date().getFullYear();
         document.getElementById('purchaseDate').value = new Date().toISOString().slice(0, 10);
 
         initPhotoUploader();
@@ -1446,10 +1455,10 @@
 
         function updateYearField(key) {
           var hint = WineDB.getYearFieldHint(key);
-          var yearLabel = document.querySelector('label[for="year"]');
-          var yearInput = document.getElementById('year');
-          if (yearLabel) yearLabel.textContent = hint.label;
-          if (yearInput) yearInput.placeholder = hint.placeholder;
+          var agingLabel = document.getElementById('agingYears-label');
+          var agingInput = document.getElementById('agingYears');
+          if (agingLabel) agingLabel.textContent = hint.label;
+          if (agingInput) agingInput.placeholder = hint.placeholder;
         }
 
         // 检测AI识别后type字段变化，自动匹配级联
@@ -1564,10 +1573,10 @@
         level3.querySelectorAll('.cascade-btn').forEach(function(b) { b.classList.remove('selected'); });
         document.querySelectorAll('.cascade-step').forEach(function(s) { s.classList.remove('active'); });
         document.querySelector('.cascade-step[data-step="1"]').classList.add('active');
-        var yearLabel = document.querySelector('label[for="year"]');
-        var yearInput = document.getElementById('year');
-        if (yearLabel) yearLabel.textContent = '年份/陈酿';
-        if (yearInput) yearInput.placeholder = '一般没有标注可留空';
+        var yearLabel = document.getElementById('agingYears-label');
+        var yearInput = document.getElementById('agingYears');
+        if (yearLabel) yearLabel.textContent = '陈酿年数';
+        if (yearInput) yearInput.placeholder = '如：12（酒标没标就留空）';
       };
 
       // 供外部调用的检查保质期函数
@@ -1646,7 +1655,9 @@
           detailType: detailVal,
           degree: form.degree.value ? parseFloat(form.degree.value) : null,
           capacity: form.capacity.value ? parseInt(form.capacity.value) : null,
-          year: form.year.value ? parseInt(form.year.value) : new Date().getFullYear(),
+          agingYears: form.agingYears.value ? parseInt(form.agingYears.value) : null,
+          productionYear: form.productionYear.value ? parseInt(form.productionYear.value) : null,
+          year: form.productionYear.value ? parseInt(form.productionYear.value) : (form.agingYears.value ? parseInt(form.agingYears.value) : null),
           price: form.price.value ? parseFloat(form.price.value) : 0,
           quantity: form.quantity.value ? parseInt(form.quantity.value) : 1,
           status: form.status.value || 'cellared',
@@ -1703,6 +1714,8 @@
                   document.getElementById('spec').value = '';
                   document.getElementById('degree').value = '';
                   document.getElementById('capacity').value = '';
+                  document.getElementById('agingYears').value = '';
+                  document.getElementById('productionYear').value = new Date().getFullYear();
                   document.getElementById('price').value = '';
                   document.getElementById('notes').value = '';
                   document.getElementById('expiryDate').value = '';
