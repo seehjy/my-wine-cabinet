@@ -80,12 +80,15 @@ var Onboarding = (function() {
     });
 
     skipBtn.addEventListener('click', closeTour);
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) closeTour();
+    });
 
     function closeTour() {
+      markVisited();
       overlay.style.animation = 'onboarding-fade-out 0.2s ease forwards';
       setTimeout(function() {
-        overlay.remove();
-        markVisited();
+        if (overlay.parentNode) overlay.remove();
       }, 200);
     }
 
