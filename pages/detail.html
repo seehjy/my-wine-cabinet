@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>酒品详情-我的酒柜</title>
-  <link rel="stylesheet" href="../css/global.css">
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/css/global.css">
+  <script src="/lib/tailwind.min.js"></script>
+  <script src="/lib/lucide.min.js"></script>
 </head>
 <body>
   <main class="page-container">
@@ -28,11 +28,48 @@
     </div>
   </main>
 
-  <script src="../js/datastore.js"></script>
-  <script src="../js/app.js"></script>
-  <script src="../js/ui.js"></script>
-  <script src="../js/onboarding.js?v=20260702f"></script>
+  <script src="/js/datastore.js?v=20260705"></script>
+  <script src="/js/app.js?v=20260705"></script>
+  <script src="/js/ui.js?v=20260705"></script>
+  <script src="/js/onboarding.js?v=20260705"></script>
   <script>
+    // 防御性清理：强制清理 localStorage 中所有字段的 <br> 标签（无论 version）
+    (function() {
+      try {
+        var raw = localStorage.getItem('wine_cabinet_data');
+        if (!raw) return;
+        var data = JSON.parse(raw);
+        if (!data || !data.wines) return;
+        var brRegex = /<br\s*\/?>/gi;
+        var changed = false;
+        data.wines.forEach(function(w) {
+          ['notes', 'spec', 'name', 'brand', 'type', 'subCategory', 'detailType', 'origin', 'location', 'purchaseChannel', 'code'].forEach(function(key) {
+            if (w[key] && typeof w[key] === 'string' && brRegex.test(w[key])) {
+              brRegex.lastIndex = 0;
+              w[key] = w[key].replace(brRegex, key === 'notes' ? '\n' : ' ').trim();
+              changed = true;
+            }
+          });
+        });
+        if (data.tastingNotes) {
+          data.tastingNotes.forEach(function(t) {
+            ['notes', 'appearance', 'aroma', 'taste', 'wine', 'brand'].forEach(function(key) {
+              if (t[key] && typeof t[key] === 'string' && brRegex.test(t[key])) {
+                brRegex.lastIndex = 0;
+                t[key] = t[key].replace(brRegex, key === 'notes' || key === 'appearance' || key === 'aroma' || key === 'taste' ? '\n' : ' ').trim();
+                changed = true;
+              }
+            });
+          });
+        }
+        if (changed) {
+          data.version = 6;
+          localStorage.setItem('wine_cabinet_data', JSON.stringify(data));
+          console.log('[detail.html] 已清理 <br> 脏数据');
+        }
+      } catch(e) { console.error('清理脏数据失败:', e); }
+    })();
+
     function safeCreateIcons() {
       if (window.lucide && typeof lucide.createIcons === 'function') {
         try { lucide.createIcons(); } catch(e) {}
@@ -296,7 +333,9 @@
       if (w.capacity) infoItems.push({ icon: 'droplet', label: '容量', value: w.capacity + 'mL' });
       if (w.degree !== undefined && w.degree !== null) infoItems.push({ icon: 'thermometer', label: '度数', value: w.degree + '°' });
       if (categoryDisplay) infoItems.push({ icon: 'wine', label: '类型', value: categoryDisplay });
-      if (w.year) infoItems.push({ icon: 'calendar-days', label: '年份', value: w.year });
+      if (w.agingYears) infoItems.push({ icon: 'hourglass', label: '陈酿', value: w.agingYears + '年' });
+      if (w.productionYear) infoItems.push({ icon: 'calendar-days', label: '生产年份', value: w.productionYear });
+      else if (w.year && w.year > 1900 && w.year < 2100) infoItems.push({ icon: 'calendar-days', label: '生产年份', value: w.year });
       if (w.purchaseDate) infoItems.push({ icon: 'calendar', label: '购入', value: w.purchaseDate });
       if (w.purchaseChannel) infoItems.push({ icon: 'shopping-cart', label: '渠道', value: w.purchaseChannel });
       if (w.location) infoItems.push({ icon: 'warehouse', label: '位置', value: w.location });
@@ -325,7 +364,7 @@
       if (w.notes || (w.noteImages && w.noteImages.length > 0)) {
         notesHtml = '<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--color-border-light);">';
         if (w.notes) {
-          notesHtml += '<div style="font-size: var(--text-sm); color: var(--color-text-secondary); line-height: 1.6;">' + WineCabinetApp.escapeHtml(w.notes) + '</div>';
+          notesHtml += '<div style="font-size: var(--text-sm); color: var(--color-text-secondary); line-height: 1.6;">' + WineCabinetApp.escapeHtml(w.notes, true) + '</div>';
         }
         if (w.noteImages && w.noteImages.length > 0) {
           var imgGap = w.notes ? 'margin-top: 10px;' : '';
