@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>酒柜-我的酒柜</title>
-  <link rel="stylesheet" href="../css/global.css">
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/css/global.css">
+  <script src="/lib/tailwind.min.js"></script>
+  <script src="/lib/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -63,10 +63,10 @@
     </div>
   </main>
 
-  <script src="../js/datastore.js"></script>
-  <script src="../js/app.js"></script>
-  <script src="../js/ui.js"></script>
-  <script src="../js/onboarding.js?v=20260702f"></script>
+  <script src="/js/datastore.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/ui.js"></script>
+  <script src="/js/onboarding.js?v=20260702f"></script>
   <script>
     (function() {
       var finishedExpanded = false;
@@ -203,7 +203,7 @@
                 (isGrouped ? '<span class="badge">' + wine.totalCapacity + 'mL</span>' : '<span class="badge">' + (representativeWine.capacity || '') + 'mL</span>') +
                 statusBadge +
                 scoreHtml +
-                (isGrouped ? '<span style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-left: auto;">' + wine.wines.length + '个规格</span>' : '') +
+                (isGrouped ? '<span style="font-size: var(--text-xs); color: var(--color-text-tertiary); margin-left: auto;">' + (representativeWine.tastingScore ? ' · ' : '') + wine.wines.length + '个规格</span>' : '') +
               '</div>' +
             '</div>' +
           '</div>' +
