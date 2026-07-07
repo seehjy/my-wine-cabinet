@@ -1,12 +1,12 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN" class="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>酒柜-我的酒柜</title>
-  <link rel="stylesheet" href="/css/global.css">
-  <script src="/lib/tailwind.min.js"></script>
-  <script src="/lib/lucide.min.js"></script>
+  <link rel="stylesheet" href="/my-wine-cabinet/css/global.css">
+  <script src="/my-wine-cabinet/lib/tailwind.min.js"></script>
+  <script src="/my-wine-cabinet/lib/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -19,7 +19,7 @@
           <h1 class="page-title" style="font-size: var(--text-3xl);">我的酒柜</h1>
           <span id="wine-count-badge" class="badge badge-pill badge-primary" style="font-size: var(--text-sm); height: 24px; padding: 0 10px;">0</span>
         </div>
-        <a href="add-wine.html" class="icon-btn" aria-label="添加酒品">
+        <a href="/my-wine-cabinet/pages/add-wine.html" class="icon-btn" aria-label="添加酒品">
           <i data-lucide="plus" style="width: 20px; height: 20px;"></i>
         </a>
       </div>
@@ -63,10 +63,10 @@
     </div>
   </main>
 
-  <script src="/js/datastore.js"></script>
-  <script src="/js/app.js"></script>
-  <script src="/js/ui.js"></script>
-  <script src="/js/onboarding.js?v=20260702f"></script>
+  <script src="/my-wine-cabinet/js/datastore.js"></script>
+  <script src="/my-wine-cabinet/js/app.js"></script>
+  <script src="/my-wine-cabinet/js/ui.js"></script>
+  <script src="/my-wine-cabinet/js/onboarding.js?v=20260702f"></script>
   <script>
     (function() {
       var finishedExpanded = false;
@@ -181,7 +181,7 @@
 
         var detailType = wine.detailType || representativeWine.detailType || wine.subCategory || representativeWine.subCategory || wine.type || representativeWine.type || '';
 
-        return '<a href="detail.html?id=' + representativeWine.id + '" class="wine-card' + pinnedClass + '">' +
+        return '<a href="/my-wine-cabinet/pages/detail.html?id=' + representativeWine.id + '" class="wine-card' + pinnedClass + '">' +
           '<div style="display: flex; gap: 12px;">' +
             imageHtml +
             '<div style="flex: 1; min-width: 0;">' +
@@ -214,7 +214,7 @@
         var totalQuantity = wine.quantity || 1;
         var typeColor = getTypeColor(wine.type);
         var qtyHtml = totalQuantity > 1 ? '<span class="badge" style="font-size: 10px;">×' + totalQuantity + '瓶</span>' : '';
-        return '<a href="detail.html?id=' + wine.id + '" class="wine-card" style="opacity: 0.7;">' +
+        return '<a href="/my-wine-cabinet/pages/detail.html?id=' + wine.id + '" class="wine-card" style="opacity: 0.7;">' +
           '<div style="display: flex; gap: 12px;">' +
             '<div class="wine-bottle-icon" style="background: var(--color-background-sunken);">' +
               '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;">' +
