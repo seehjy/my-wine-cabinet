@@ -1,16 +1,24 @@
 var WineCabinetApp = (function() {
   var STORAGE_KEY = 'wine_cabinet_data';
-  var DATA_VERSION = 5;
+  var DATA_VERSION = 7;
 
   function generateId(prefix) {
     return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
   }
 
-  function escapeHtml(str) {
+  function escapeHtml(str, allowBr) {
     if (!str) return '';
+    var s = String(str);
+    if (allowBr) {
+      s = s.replace(/<br\s*\/?>/gi, '\n');
+    }
     var div = document.createElement('div');
-    div.appendChild(document.createTextNode(String(str)));
-    return div.innerHTML;
+    div.appendChild(document.createTextNode(s));
+    var escaped = div.innerHTML;
+    if (allowBr) {
+      escaped = escaped.replace(/\n/g, '<br>');
+    }
+    return escaped;
   }
 
   function getDefaultData() {
@@ -26,14 +34,14 @@ var WineCabinetApp = (function() {
       version: DATA_VERSION,
       user: { name: '酒友', avatar: '', isLoggedIn: false },
       wines: [
-        { id: 'w1', name: '品味舍得', brand: '舍得', type: '浓香', degree: 52, capacity: 500, quantity: 1, year: 2023, price: 598, status: 'cellared', tastingScore: 8.5, purchaseDate: '2024-01-15', notes: '浓香型白酒，口感醇厚', image: null, expiryDate: null },
-        { id: 'w2', name: '智慧舍得', brand: '舍得', type: '浓香', degree: 52, capacity: 500, quantity: 1, year: 2022, price: 788, status: 'cellared', tastingScore: 9.0, purchaseDate: '2024-02-20', notes: '陈年老酒，香气幽雅', image: null, expiryDate: null },
-        { id: 'w3', name: '普五第八代', brand: '五粮液', type: '浓香', degree: 52, capacity: 500, quantity: 1, year: 2023, price: 1099, status: 'cellared', tastingScore: 9.2, purchaseDate: '2024-03-10', notes: '浓香型典范，诸味协调', image: null, expiryDate: null },
-        { id: 'w4', name: '国窖1573', brand: '泸州老窖', type: '浓香', degree: 52, capacity: 500, quantity: 1, year: 2023, price: 1199, status: 'opened', tastingScore: 9.1, purchaseDate: '2024-01-05', openDate: '2024-06-01', remaining: 350, notes: '窖香浓郁，绵甜爽净', image: null, expiryDate: null },
-        { id: 'w5', name: '青花郎', brand: '郎酒', type: '酱香', degree: 53, capacity: 500, quantity: 1, year: 2022, price: 1298, status: 'cellared', tastingScore: 8.8, purchaseDate: '2024-04-12', notes: '酱香突出，优雅细腻', image: null, expiryDate: null },
-        { id: 'w15', name: '奔富Bin389', brand: 'Penfolds', spec: '礼盒装', type: '其他', degree: 14.5, capacity: 750, quantity: 2, year: 2021, price: 388, status: 'cellared', tastingScore: 0, purchaseDate: '2025-12-01', notes: '澳洲名庄，适合陈年', image: null, expiryDate: farFuture.toISOString().slice(0, 10) },
-        { id: 'w16', name: '青岛白啤', brand: '青岛', spec: '6罐装', type: '其他', degree: 4.1, capacity: 500, quantity: 1, year: 2026, price: 48, status: 'cellared', tastingScore: 0, purchaseDate: '2026-06-15', notes: '小麦白啤，口感清爽', image: null, expiryDate: nextMonth.toISOString().slice(0, 10) },
-        { id: 'w17', name: '獭祭二割三分', brand: '獭祭', type: '其他', degree: 16, capacity: 720, quantity: 1, year: 2026, price: 328, status: 'cellared', tastingScore: 0, purchaseDate: '2026-06-20', notes: '日本清酒，花果香浓郁', image: null, expiryDate: nextWeek.toISOString().slice(0, 10) }
+        { id: 'w1', name: '品味舍得', brand: '舍得', type: '浓香', degree: 52, capacity: 500, quantity: 1, agingYears: null, productionYear: 2023, year: 2023, price: 598, status: 'cellared', tastingScore: 8.5, purchaseDate: '2024-01-15', notes: '浓香型白酒，口感醇厚', image: null, expiryDate: null },
+        { id: 'w2', name: '智慧舍得', brand: '舍得', type: '浓香', degree: 52, capacity: 500, quantity: 1, agingYears: null, productionYear: 2022, year: 2022, price: 788, status: 'cellared', tastingScore: 9.0, purchaseDate: '2024-02-20', notes: '陈年老酒，香气幽雅', image: null, expiryDate: null },
+        { id: 'w3', name: '普五第八代', brand: '五粮液', type: '浓香', degree: 52, capacity: 500, quantity: 1, agingYears: null, productionYear: 2023, year: 2023, price: 1099, status: 'cellared', tastingScore: 9.2, purchaseDate: '2024-03-10', notes: '浓香型典范，诸味协调', image: null, expiryDate: null },
+        { id: 'w4', name: '国窖1573', brand: '泸州老窖', type: '浓香', degree: 52, capacity: 500, quantity: 1, agingYears: null, productionYear: 2023, year: 2023, price: 1199, status: 'opened', tastingScore: 9.1, purchaseDate: '2024-01-05', openDate: '2024-06-01', remaining: 350, notes: '窖香浓郁，绵甜爽净', image: null, expiryDate: null },
+        { id: 'w5', name: '青花郎', brand: '郎酒', type: '酱香', degree: 53, capacity: 500, quantity: 1, agingYears: null, productionYear: 2022, year: 2022, price: 1298, status: 'cellared', tastingScore: 8.8, purchaseDate: '2024-04-12', notes: '酱香突出，优雅细腻', image: null, expiryDate: null },
+        { id: 'w15', name: '奔富Bin389', brand: 'Penfolds', spec: '礼盒装', type: '其他', degree: 14.5, capacity: 750, quantity: 2, agingYears: null, productionYear: 2021, year: 2021, price: 388, status: 'cellared', tastingScore: 0, purchaseDate: '2025-12-01', notes: '澳洲名庄，适合陈年', image: null, expiryDate: farFuture.toISOString().slice(0, 10) },
+        { id: 'w16', name: '青岛白啤', brand: '青岛', spec: '6罐装', type: '其他', degree: 4.1, capacity: 500, quantity: 1, agingYears: null, productionYear: 2026, year: 2026, price: 48, status: 'cellared', tastingScore: 0, purchaseDate: '2026-06-15', notes: '小麦白啤，口感清爽', image: null, expiryDate: nextMonth.toISOString().slice(0, 10) },
+        { id: 'w17', name: '獭祭二割三分', brand: '獭祭', type: '其他', degree: 16, capacity: 720, quantity: 1, agingYears: null, productionYear: 2026, year: 2026, price: 328, status: 'cellared', tastingScore: 0, purchaseDate: '2026-06-20', notes: '日本清酒，花果香浓郁', image: null, expiryDate: nextWeek.toISOString().slice(0, 10) }
       ],
       tastingNotes: [
         { id: 't1', wineId: 'w3', wine: '五粮液 普五第八代', brand: '五粮液', date: '2024-06-15', score: 9.2, dimensions: { color: 9, aroma: 9, taste: 9, overall: 9 }, appearance: '无色透明，挂杯明显', aroma: '窖香浓郁，带有粮香和花果香', taste: '入口绵甜，诸味协调，尾净余长', notes: '不愧为浓香标杆，层次丰富', occasion: '家庭聚会' },
@@ -57,7 +65,7 @@ var WineCabinetApp = (function() {
     if (!data || !data.wines) return getDefaultData();
     var changed = false;
     if (!data.version || data.version < 5) {
-      data.version = DATA_VERSION;
+      data.version = 5;
       data.wines.forEach(function(w) {
         if (w.degree && w.degree > 20 && w.type !== '其他' && w.expiryDate) {
           w.expiryDate = null;
@@ -69,6 +77,39 @@ var WineCabinetApp = (function() {
       if (!data.wishlist) data.wishlist = [];
       if (!data.activities) data.activities = [];
       if (!data.settings) data.settings = { theme: 'light' };
+      changed = true;
+    }
+    if (!data.version || data.version < 6) {
+      data.version = 6;
+      var brRegex = /<br\s*\/?>/gi;
+      data.wines.forEach(function(w) {
+        if (w.notes) w.notes = w.notes.replace(brRegex, '\n');
+        if (w.spec) w.spec = w.spec.replace(brRegex, ' ');
+        if (w.name) w.name = w.name.replace(brRegex, ' ');
+        if (w.brand) w.brand = w.brand.replace(brRegex, ' ');
+      });
+      if (data.tastingNotes) {
+        data.tastingNotes.forEach(function(t) {
+          if (t.notes) t.notes = t.notes.replace(brRegex, '\n');
+          if (t.appearance) t.appearance = t.appearance.replace(brRegex, '\n');
+          if (t.aroma) t.aroma = t.aroma.replace(brRegex, '\n');
+          if (t.taste) t.taste = t.taste.replace(brRegex, '\n');
+        });
+      }
+      changed = true;
+    }
+    if (!data.version || data.version < 7) {
+      data.version = 7;
+      data.wines.forEach(function(w) {
+        if (w.agingYears === undefined) w.agingYears = null;
+        if (w.productionYear === undefined) {
+          if (w.year && w.year > 1900 && w.year < 2100) {
+            w.productionYear = w.year;
+          } else {
+            w.productionYear = null;
+          }
+        }
+      });
       changed = true;
     }
     return data;
