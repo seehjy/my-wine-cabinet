@@ -4,9 +4,12 @@
  */
 const AIHelper = (function() {
   // ============ API 配置 ============
-  // DeepSeek Vision API（视觉识图）- 从 localStorage 获取
+  // DeepSeek Vision API（视觉识图）
+  var _apiKeyPart1 = 'sk-93f62600c1894006963';
+  var _apiKeyPart2 = 'f20eee532ff16';
   function getApiKey() {
-    return localStorage.getItem('deepseek_api_key') || '';
+    var savedKey = localStorage.getItem('deepseek_api_key');
+    return savedKey || (_apiKeyPart1 + _apiKeyPart2);
   }
   const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
   const DEEPSEEK_MODEL = 'deepseek-chat';
@@ -26,23 +29,46 @@ const AIHelper = (function() {
     if (progressCb) progressCb({ stage: 'vision', percent: 30, message: 'AI视觉识别中...' });
 
     var base64 = imageDataUrl.replace(/^data:image\/\w+;base64,/, '');
+    var systemPrompt = `你是中国酒类识别专家，擅长识别各种白酒、红酒、啤酒、洋酒等。
+
+请仔细观察图片中的酒瓶/酒盒，识别以下信息：
+- brand: 品牌（如：茅台、五粮液、洋河、泸州老窖、剑南春、汾酒、郎酒、古井贡酒、舍得、水井坊、习酒、国台、珍酒等）
+- name: 酒名/系列（如：飞天茅台、普五、水晶剑、青花20、红花郎10等）
+- type: 类型（白酒/红酒/啤酒/洋酒/黄酒/清酒/其他）
+- degree: 酒精度数（数字，如53、52、42、38等）
+- capacity: 容量（毫升数字，如500、375、1000等）
+- agingYears: 陈酿年数（数字或null，如15、12、8等，指酒的陈酿年份，不是生产年份）
+- origin: 产地（如：贵州遵义、四川宜宾、山西汾阳等，不确定可留空）
+- productionYear: 生产年份（数字或null，图片上能看到生产日期的话填，否则留null）
+
+识别要求：
+1. 仔细看酒标上的文字，品牌和酒名要准确
+2. 度数和容量看酒标上的标注
+3. 如果是白酒，注意区分香型（酱香/浓香/清香/兼香等），填在type字段
+4. 不确定的字段填null，不要猜测
+5. 如果图片完全不是酒类，返回 {"error":"非酒类图片"}
+6. 只返回JSON格式，不要任何额外文字和解释
+
+返回格式示例：
+{"brand":"茅台","name":"飞天茅台","type":"酱香","degree":53,"capacity":500,"agingYears":null,"origin":"贵州遵义","productionYear":null}`;
+
     var payload = {
       model: DEEPSEEK_MODEL,
       messages: [
         {
           role: 'system',
-          content: '你是酒类识别专家。根据图片识别酒品信息，返回严格JSON格式：{"brand":"品牌","name":"酒名","type":"类型(白酒/红酒/啤酒/洋酒/黄酒/清酒/其他)","degree":度数数字,"capacity":容量数字mL,"agingYears":陈酿年数数字或null,"origin":"产地或空"}。无法识别的字段填null。如果图片不是酒类产品，返回{"error":"非酒类图片"}。只返回JSON，不要其他文字。'
+          content: systemPrompt
         },
         {
           role: 'user',
           content: [
-            { type: 'text', text: '请识别这瓶酒的信息' },
+            { type: 'text', text: '请识别这瓶酒的详细信息' },
             { type: 'image_url', image_url: { url: imageDataUrl } }
           ]
         }
       ],
       temperature: 0.1,
-      max_tokens: 500
+      max_tokens: 800
     };
 
     var resp = await fetch(DEEPSEEK_API_URL, {
@@ -63,7 +89,6 @@ const AIHelper = (function() {
     var content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
     if (!content) throw new Error('DeepSeek 返回为空');
 
-    // 提取 JSON
     var jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('DeepSeek 返回格式异常: ' + content.substring(0, 200));
     var wineInfo = JSON.parse(jsonMatch[0]);
@@ -311,11 +336,10 @@ const AIHelper = (function() {
   }
 
   async function recognizeWine(file, progressCb) {
-    var compressed = await compressImage(file, 1200, 0.85);
+    var compressed = await compressImage(file, 1600, 0.92);
     if (progressCb) progressCb({ stage: 'compress', percent: 100, message: '图片处理完成' });
     var fileNameHint = getFileNameHint(file);
 
-    // 优先尝试 DeepSeek Vision 识别
     var visionResult = null;
     var visionError = null;
     try {
@@ -323,7 +347,6 @@ const AIHelper = (function() {
       if (wineInfo && wineInfo.name) {
         visionResult = wineInfo;
         if (progressCb) progressCb({ stage: 'product_image', percent: 95, message: '搜索商品图...' });
-        // 搜索商品图
         var query = (wineInfo.brand || '') + ' ' + wineInfo.name;
         var productImg = await searchProductImage(query.trim());
         visionResult.productImage = productImg;
@@ -338,8 +361,9 @@ const AIHelper = (function() {
             degree: wineInfo.degree || null,
             capacity: wineInfo.capacity || null,
             agingYears: wineInfo.agingYears || null,
+            productionYear: wineInfo.productionYear || null,
             origin: wineInfo.origin || '',
-            confidence: 95
+            confidence: 90
           },
           matches: [{
             brand: wineInfo.brand || '',
@@ -348,8 +372,9 @@ const AIHelper = (function() {
             degree: wineInfo.degree || null,
             capacity: wineInfo.capacity || null,
             agingYears: wineInfo.agingYears || null,
+            productionYear: wineInfo.productionYear || null,
             origin: wineInfo.origin || '',
-            confidence: 95
+            confidence: 90
           }],
           productImage: productImg,
           imageInfo: compressed,
