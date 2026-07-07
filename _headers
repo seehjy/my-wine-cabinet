@@ -1,0 +1,11 @@
+# No caching for HTML files
+/*.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Cache static assets
+/css/*
+  Cache-Control: public, max-age=3600
+/js/*
+  Cache-Control: public, max-age=3600
+/lib/*
+  Cache-Control: public, max-age=3600
