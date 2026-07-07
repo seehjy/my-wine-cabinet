@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>编辑规格-我的酒柜</title>
-  <link rel="stylesheet" href="../css/global.css">
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/css/global.css">
+  <script src="/lib/tailwind.min.js"></script>
+  <script src="/lib/lucide.min.js"></script>
   <style>
     .form-input, .form-select, .form-textarea { 
       transition: all 0.25s ease;
@@ -110,8 +110,13 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="year">年份/陈酿</label>
-            <input type="number" id="year" name="year" class="form-input" placeholder="一般没有标注可留空" min="1900" max="2100">
+            <label class="form-label" for="agingYears">陈酿年数</label>
+            <input type="number" id="agingYears" name="agingYears" class="form-input" placeholder="如：12（酒标没标就留空）" min="1" max="100">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="productionYear">生产年份</label>
+            <input type="number" id="productionYear" name="productionYear" class="form-input" placeholder="如：2020（4位数年份）" min="1900" max="2100">
           </div>
 
           <div class="form-group" id="expiry-group" style="display:none;">
@@ -155,11 +160,11 @@
     </button>
   </div>
 
-  <script src="../js/datastore.js"></script>
-  <script src="../js/app.js"></script>
-  <script src="../js/ui.js"></script>
-  <script src="../js/onboarding.js?v=20260702f"></script>
-  <script src="../js/wine-db.js?v=20260702f"></script>
+  <script src="/js/datastore.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/ui.js"></script>
+  <script src="/js/onboarding.js?v=20260702f"></script>
+  <script src="/js/wine-db.js?v=20260702f"></script>
   <script>
     (function() {
       var wineId = null;
@@ -487,7 +492,9 @@
         noteImages = wineData.noteImages ? wineData.noteImages.slice() : [];
         renderNoteImages();
 
-        if (wineData.year) document.getElementById('year').value = wineData.year;
+        if (wineData.agingYears) document.getElementById('agingYears').value = wineData.agingYears;
+        if (wineData.productionYear) document.getElementById('productionYear').value = wineData.productionYear;
+        else if (wineData.year) document.getElementById('productionYear').value = wineData.year;
       }
 
       function renderNoteImages() {
@@ -539,7 +546,9 @@
           category: categoryVal || wineData.category || '',
           subCategory: subCatVal || wineData.subCategory || '',
           detailType: detailVal || wineData.detailType || '',
-          year: form.year.value ? parseInt(form.year.value) : null
+          agingYears: form.agingYears.value ? parseInt(form.agingYears.value) : null,
+          productionYear: form.productionYear.value ? parseInt(form.productionYear.value) : null,
+          year: form.productionYear.value ? parseInt(form.productionYear.value) : (form.agingYears.value ? parseInt(form.agingYears.value) : null)
         };
 
         var btn = document.getElementById('btn-save');
