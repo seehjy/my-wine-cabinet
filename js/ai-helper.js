@@ -1,14 +1,114 @@
 /**
- * AI 辅助助手 - 图片上传/压缩/OCR识别/智能填充
+ * AI 辅助助手 - 图片上传/压缩/视觉识别/智能填充
  * 针对小白用户优化，提供更简单直观的操作体验
  */
 const AIHelper = (function() {
+  // ============ API 配置 ============
+  // DeepSeek Vision API（视觉识图）- 从 localStorage 获取
+  function getApiKey() {
+    return localStorage.getItem('deepseek_api_key') || '';
+  }
+  const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
+  const DEEPSEEK_MODEL = 'deepseek-chat';
+
   const TESSERACT_CDN = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
   let tesseractLoaded = false;
   let tesseractLoading = false;
   let ocrWorker = null;
   let recentWines = [];
   const MAX_RECENT = 8;
+
+  // ============ DeepSeek Vision 识别 ============
+  async function recognizeByVision(imageDataUrl, progressCb) {
+    if (!getApiKey()) {
+      throw new Error('DeepSeek API Key 未配置，请在设置页面输入');
+    }
+    if (progressCb) progressCb({ stage: 'vision', percent: 30, message: 'AI视觉识别中...' });
+
+    var base64 = imageDataUrl.replace(/^data:image\/\w+;base64,/, '');
+    var payload = {
+      model: DEEPSEEK_MODEL,
+      messages: [
+        {
+          role: 'system',
+          content: '你是酒类识别专家。根据图片识别酒品信息，返回严格JSON格式：{"brand":"品牌","name":"酒名","type":"类型(白酒/红酒/啤酒/洋酒/黄酒/清酒/其他)","degree":度数数字,"capacity":容量数字mL,"agingYears":陈酿年数数字或null,"origin":"产地或空"}。无法识别的字段填null。如果图片不是酒类产品，返回{"error":"非酒类图片"}。只返回JSON，不要其他文字。'
+        },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: '请识别这瓶酒的信息' },
+            { type: 'image_url', image_url: { url: imageDataUrl } }
+          ]
+        }
+      ],
+      temperature: 0.1,
+      max_tokens: 500
+    };
+
+    var resp = await fetch(DEEPSEEK_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + getApiKey()
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!resp.ok) {
+      var errText = await resp.text();
+      throw new Error('DeepSeek API 错误(' + resp.status + '): ' + errText.substring(0, 200));
+    }
+
+    var data = await resp.json();
+    var content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    if (!content) throw new Error('DeepSeek 返回为空');
+
+    // 提取 JSON
+    var jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('DeepSeek 返回格式异常: ' + content.substring(0, 200));
+    var wineInfo = JSON.parse(jsonMatch[0]);
+
+    if (wineInfo.error) throw new Error(wineInfo.error);
+
+    if (progressCb) progressCb({ stage: 'vision_done', percent: 90, message: '识别完成' });
+    return wineInfo;
+  }
+
+  // ============ 百度商品图搜索 ============
+  async function searchProductImage(query) {
+    try {
+      var searchUrl = 'https://image.baidu.com/search/acjson?tn=resultjson_com&word=' +
+        encodeURIComponent(query + ' 酒 官方 商品图') +
+        '&pn=0&rn=10&ipn=rj&ie=utf-8&oe=utf-8';
+
+      var resp = await fetch(searchUrl, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!resp.ok) throw new Error('百度图片搜索错误(' + resp.status + ')');
+      var data = await resp.json();
+
+      if (data.data && data.data.length > 0) {
+        var valid = data.data.filter(function(item) {
+          return item && item.thumbURL && item.width && item.height &&
+            item.width >= 200 && item.height >= 200;
+        });
+        if (valid.length > 0) {
+          // 优选正方形图片
+          valid.sort(function(a, b) {
+            var aDiff = Math.abs((a.width || 0) - (a.height || 0));
+            var bDiff = Math.abs((b.width || 0) - (b.height || 0));
+            return aDiff - bDiff;
+          });
+          return valid[0].thumbURL;
+        }
+      }
+      return null;
+    } catch(e) {
+      console.warn('Baidu image search failed:', e);
+      return null;
+    }
+  }
 
   function getExifOrientation(file) {
     return new Promise(function(resolve) {
@@ -213,11 +313,61 @@ const AIHelper = (function() {
   async function recognizeWine(file, progressCb) {
     var compressed = await compressImage(file, 1200, 0.85);
     if (progressCb) progressCb({ stage: 'compress', percent: 100, message: '图片处理完成' });
+    var fileNameHint = getFileNameHint(file);
+
+    // 优先尝试 DeepSeek Vision 识别
+    var visionResult = null;
+    var visionError = null;
+    try {
+      var wineInfo = await recognizeByVision(compressed.dataUrl, progressCb);
+      if (wineInfo && wineInfo.name) {
+        visionResult = wineInfo;
+        if (progressCb) progressCb({ stage: 'product_image', percent: 95, message: '搜索商品图...' });
+        // 搜索商品图
+        var query = (wineInfo.brand || '') + ' ' + wineInfo.name;
+        var productImg = await searchProductImage(query.trim());
+        visionResult.productImage = productImg;
+        if (progressCb) progressCb({ stage: 'done', percent: 100, message: '识别成功！' });
+        return {
+          image: compressed.dataUrl,
+          text: '',
+          match: {
+            brand: wineInfo.brand || '',
+            name: wineInfo.name || '',
+            type: wineInfo.type || '其他',
+            degree: wineInfo.degree || null,
+            capacity: wineInfo.capacity || null,
+            agingYears: wineInfo.agingYears || null,
+            origin: wineInfo.origin || '',
+            confidence: 95
+          },
+          matches: [{
+            brand: wineInfo.brand || '',
+            name: wineInfo.name || '',
+            type: wineInfo.type || '其他',
+            degree: wineInfo.degree || null,
+            capacity: wineInfo.capacity || null,
+            agingYears: wineInfo.agingYears || null,
+            origin: wineInfo.origin || '',
+            confidence: 95
+          }],
+          productImage: productImg,
+          imageInfo: compressed,
+          ocrFailed: false,
+          visionUsed: true,
+          fileNameHint: fileNameHint
+        };
+      }
+    } catch(e) {
+      console.warn('Vision API failed, fallback to OCR:', e);
+      visionError = e.message || '视觉识别失败';
+    }
+
+    // 回退到本地 OCR
     var text = '';
     var matches = [];
     var match = null;
     var ocrFailed = false;
-    var fileNameHint = getFileNameHint(file);
 
     try {
       if (progressCb) progressCb({ stage: 'ocr', percent: 0, message: 'AI正在识别文字...' });
@@ -227,7 +377,7 @@ const AIHelper = (function() {
       if (progressCb) progressCb({ stage: 'match', percent: 80, message: '正在匹配酒品...' });
       matches = WineDB.matchMultipleFromOCRText(text, 8);
     } catch(e) {
-      console.warn('OCR failed, fallback:', e);
+      console.warn('OCR failed:', e);
       ocrFailed = true;
     }
 
@@ -247,6 +397,7 @@ const AIHelper = (function() {
       else if (match.confidence >= 40) doneMsg = '找到可能的酒款，请确认';
       else doneMsg = '为你推荐相关酒款';
     }
+    if (visionError && !match) doneMsg = 'AI识别失败：' + visionError;
     if (progressCb) progressCb({ stage: 'done', percent: 100, message: doneMsg });
     return {
       image: compressed.dataUrl,
@@ -255,6 +406,8 @@ const AIHelper = (function() {
       matches: matches,
       imageInfo: compressed,
       ocrFailed: ocrFailed,
+      visionError: visionError,
+      visionUsed: false,
       fileNameHint: fileNameHint
     };
   }
@@ -320,13 +473,15 @@ const AIHelper = (function() {
   function fillForm(formEl, wineData, options) {
     options = options || {};
     var category = getWineTypeCategory(wineData.type);
-    var fields = ['brand', 'name', 'type', 'degree', 'capacity', 'price', 'origin'];
+    var fields = ['brand', 'name', 'type', 'degree', 'capacity', 'agingYears', 'productionYear', 'price', 'origin'];
     var mapped = {
       brand: wineData.brand,
       name: wineData.name,
       type: ['酱香', '浓香', '清香', '兼香'].indexOf(wineData.type) >= 0 ? wineData.type : '其他',
       degree: wineData.degree,
       capacity: wineData.capacity,
+      agingYears: wineData.agingYears,
+      productionYear: wineData.productionYear,
       price: wineData.price,
       origin: wineData.origin
     };
@@ -844,7 +999,7 @@ const AIHelper = (function() {
       if (result.match) {
         var matches = result.matches && result.matches.length > 0 ? result.matches : [result.match];
         var bestMatch = result.match;
-        var stdImgUrl = WineDB.generateImageUrl(bestMatch);
+        var stdImgUrl = result.productImage || WineDB.generateImageUrl(bestMatch);
         var fallbackImg = WineDB.generateFallbackImage(bestMatch);
         var bestConfidence = bestMatch.confidence || 0;
 
@@ -915,6 +1070,8 @@ const AIHelper = (function() {
             });
             bestMatch = w;
             stdImgUrl = WineDB.generateImageUrl(w);
+            // 切换酒款后不再使用初始 productImage
+            result.productImage = null;
             updateImgChoice(w);
           });
           matchList.appendChild(card);
@@ -950,7 +1107,7 @@ const AIHelper = (function() {
                     '<div style="position:absolute;bottom:4px;left:4px;right:4px;padding:4px 6px;background:rgba(0,0,0,0.6);color:#fff;font-size:10px;border-radius:4px;text-align:center;">示意图</div>' +
                   '</div>' +
                 '</div>' +
-                '<div style="font-size:13px;font-weight:500;color:var(--color-primary);">✨ AI标准图 (推荐)</div>' +
+                '<div style="font-size:13px;font-weight:500;color:var(--color-primary);">' + (result.productImage ? '✨ 官方商品图 (推荐)' : '✨ AI标准图 (推荐)') + '</div>' +
               '</div>' +
             '</div>';
 
@@ -985,7 +1142,24 @@ const AIHelper = (function() {
 
           function loadStdImage() {
             if (stdImgLoaded) return;
-            stdLoading.innerHTML = '<div style="width:28px;height:28px;border:2px solid #ddd;border-top-color:var(--color-primary);border-radius:50%;animation:ai-spin 0.8s linear infinite;margin:0 auto 6px;"></div><div style="font-size:11px;">AI生成标准图中...</div>';
+            stdLoading.innerHTML = '<div style="width:28px;height:28px;border:2px solid #ddd;border-top-color:var(--color-primary);border-radius:50%;animation:ai-spin 0.8s linear infinite;margin:0 auto 6px;"></div><div style="font-size:11px;">加载商品图中...</div>';
+            // 优先使用百度搜到的商品图（直接用URL，不转base64避免跨域）
+            if (result.productImage) {
+              stdImgEl.crossOrigin = 'anonymous';
+              stdImgEl.src = result.productImage;
+              stdImgEl.onload = function() {
+                stdImgEl.style.display = 'block';
+                stdLoading.style.display = 'none';
+                stdImgDataUrl = result.productImage;
+                stdImgLoaded = true;
+                stdElSuccessEffect();
+              };
+              stdImgEl.onerror = function() {
+                loadFallbackStdImage();
+              };
+              return;
+            }
+            // 回退到文生图
             var url = WineDB.generateImageUrl(wine) + '&t=' + Date.now();
             loadImageWithTimeout(url, 10000).then(function(img) {
               var dataUrl = imageToDataURL(img);
@@ -997,16 +1171,17 @@ const AIHelper = (function() {
                 stdImgLoaded = true;
                 stdElSuccessEffect();
               } else {
-                stdLoading.innerHTML = '<div style="text-align:center;"><div style="margin-bottom:4px;">😅 生成失败</div><button class="ai-retry-std" style="padding:4px 10px;border-radius:6px;border:1px solid var(--color-primary);background:#fff;color:var(--color-primary);font-size:11px;cursor:pointer;">重试</button></div>';
-                var retryBtn = section.querySelector('.ai-retry-std');
-                if (retryBtn) retryBtn.addEventListener('click', function(e) { e.stopPropagation(); stdImgLoaded = false; loadStdImage(); });
+                loadFallbackStdImage();
               }
             }).catch(function() {
-              stdLoading.style.display = 'none';
-              stdFallback.style.display = 'block';
-              stdImgDataUrl = WineDB.generateFallbackImage(wine);
-              stdImgLoaded = true;
+              loadFallbackStdImage();
             });
+          }
+          function loadFallbackStdImage() {
+            stdLoading.style.display = 'none';
+            stdFallback.style.display = 'block';
+            stdImgDataUrl = WineDB.generateFallbackImage(wine);
+            stdImgLoaded = true;
           }
 
           function stdElSuccessEffect() {
@@ -1183,22 +1358,46 @@ const AIHelper = (function() {
     btn.addEventListener('click', function() {
       if (generating) return;
       setGenerating();
-      var stdUrl = WineDB.generateImageUrl(wine) + '&t=' + Date.now();
-      loadImageWithTimeout(stdUrl, 12000).then(function(img) {
-        var dataUrl = imageToDataURL(img);
-        var finalUrl = dataUrl || WineDB.generateFallbackImage(wine);
-        if (dataUrl) {
-          if (currentImageRef) currentImageRef.value = finalUrl;
-          uploader.setImage(finalUrl);
-          setSuccess();
-        } else {
-          if (currentImageRef) currentImageRef.value = finalUrl;
-          uploader.setImage(finalUrl);
-          setFallback();
+      var query = (wine.brand || '') + ' ' + (wine.name || '');
+      // 先搜百度商品图
+      searchProductImage(query).then(function(bdImg) {
+        if (bdImg) {
+          var testImg = new Image();
+          testImg.crossOrigin = 'anonymous';
+          testImg.onload = function() {
+            if (currentImageRef) currentImageRef.value = bdImg;
+            uploader.setImage(bdImg);
+            setSuccess();
+          };
+          testImg.onerror = function() {
+            generateAiImage();
+          };
+          testImg.src = bdImg;
+          return;
         }
+        generateAiImage();
       }).catch(function() {
-        setRetry();
+        generateAiImage();
       });
+
+      function generateAiImage() {
+        var stdUrl = WineDB.generateImageUrl(wine) + '&t=' + Date.now();
+        loadImageWithTimeout(stdUrl, 12000).then(function(img) {
+          var dataUrl = imageToDataURL(img);
+          var finalUrl = dataUrl || WineDB.generateFallbackImage(wine);
+          if (dataUrl) {
+            if (currentImageRef) currentImageRef.value = finalUrl;
+            uploader.setImage(finalUrl);
+            setSuccess();
+          } else {
+            if (currentImageRef) currentImageRef.value = finalUrl;
+            uploader.setImage(finalUrl);
+            setFallback();
+          }
+        }).catch(function() {
+          setRetry();
+        });
+      }
     });
     return btn;
   }
