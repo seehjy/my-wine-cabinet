@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>首页-我的酒柜</title>
-    <link rel="stylesheet" href="/css/global.css">
+    <link rel="stylesheet" href="/my-wine-cabinet/css/global.css">
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
     <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
 </head>
@@ -27,7 +27,7 @@
 
     <!-- ===== Hero Banner ===== -->
     <div id="hero-banner" style="position: relative; border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 24px;">
-      <img src="/assets/hero-cabinet.jpg" alt="酒柜藏品展示" style="width: 100%; height: 160px; object-fit: cover; display: block;">
+      <img src="/my-wine-cabinet/assets/hero-cabinet.jpg" alt="酒柜藏品展示" style="width: 100%; height: 160px; object-fit: cover; display: block;">
       <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(44, 24, 16, 0.7) 0%, rgba(44, 24, 16, 0.1) 100%); border-radius: var(--radius-lg);"></div>
       <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 16px;">
         <p id="hero-text" style="font-family: var(--font-body); font-size: var(--text-base); color: var(--color-text-inverse); margin: 0; font-weight: var(--font-medium);">藏品 28 瓶 &nbsp;|&nbsp; 本月新增 3 瓶</p>
@@ -40,13 +40,13 @@
 
     <!-- ===== Quick Actions ===== -->
     <div style="display: flex; justify-content: space-around; margin-bottom: 32px; padding: 0 8px;">
-      <a href="add-wine.html" style="display: flex; flex-direction: column; align-items: center; gap: 8px; text-decoration: none; flex: 1;">
+      <a href="/my-wine-cabinet/pages/add-wine.html" style="display: flex; flex-direction: column; align-items: center; gap: 8px; text-decoration: none; flex: 1;">
         <div style="width: 52px; height: 52px; border-radius: var(--radius-full); background: linear-gradient(135deg, var(--color-primary), #DAA520); display: flex; align-items: center; justify-content: center; transition: transform 160ms cubic-bezier(.2,.8,.2,1), box-shadow 160ms cubic-bezier(.2,.8,.2,1); box-shadow: 0 4px 12px rgba(139,105,20,0.3);" onmouseenter="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(139,105,20,0.4)'" onmouseleave="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 12px rgba(139,105,20,0.3)'">
           <i data-lucide="camera" style="width: 24px; height: 24px; color: var(--color-text-inverse);"></i>
         </div>
         <span style="font-family: var(--font-body); font-size: var(--text-xs); color: var(--color-text-primary); font-weight: 500; text-align: center;">AI拍照加酒</span>
       </a>
-      <a href="collection.html" style="display: flex; flex-direction: column; align-items: center; gap: 8px; text-decoration: none; flex: 1;">
+      <a href="/my-wine-cabinet/pages/collection.html" style="display: flex; flex-direction: column; align-items: center; gap: 8px; text-decoration: none; flex: 1;">
         <div style="width: 52px; height: 52px; border-radius: var(--radius-full); border: 1px solid var(--color-border); background: var(--color-background-elevated); display: flex; align-items: center; justify-content: center; transition: transform 160ms cubic-bezier(.2,.8,.2,1), border-color 160ms cubic-bezier(.2,.8,.2,1);" onmouseenter="this.style.transform='translateY(-2px)';this.style.borderColor='var(--color-primary-light)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='var(--color-border)'">
           <i data-lucide="wine" style="width: 24px; height: 24px; color: var(--color-primary);"></i>
         </div>
@@ -88,10 +88,10 @@
 </div>
 
     </main>
-    <script src="/js/datastore.js"></script>
-    <script src="/js/app.js"></script>
-    <script src="/js/ui.js"></script>
-    <script src="/js/onboarding.js?v=20260702f"></script>
+    <script src="/my-wine-cabinet/js/datastore.js"></script>
+    <script src="/my-wine-cabinet/js/app.js"></script>
+    <script src="/my-wine-cabinet/js/ui.js"></script>
+    <script src="/my-wine-cabinet/js/onboarding.js?v=20260702f"></script>
     <script>
       (function() {
         var data = WineCabinetApp.getData();
@@ -200,7 +200,7 @@
             var leftBorderColor = alert.urgent ? 'var(--state-error)' : 'var(--state-warning)';
             var dayColor = alert.urgent ? 'var(--state-error)' : 'var(--state-warning)';
             var dayText = alert.isExpired ? '⚠️ 已过期 ' + Math.abs(alert.daysLeft) + ' 天' : '还剩 ' + alert.daysLeft + ' 天';
-            return '<a href="detail.html?id=' + alert.id + '" style="text-decoration:none;color:inherit;display:block;">' +
+            return '<a href="/my-wine-cabinet/pages/detail.html?id=' + alert.id + '" style="text-decoration:none;color:inherit;display:block;">' +
               '<div style="background: var(--color-background-elevated); border-radius: var(--radius-md); border: 1px solid ' + borderColor + '; border-left: 3px solid ' + leftBorderColor + '; padding: 12px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseenter="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.08)\'" onmouseleave="this.style.transform=\'\';this.style.boxShadow=\'\'">' +
                 '<div style="display: flex; align-items: center; justify-content: space-between;">' +
                   '<div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">' +
@@ -236,7 +236,7 @@
             var rank = index + 1;
             var rankColor = rank === 1 ? 'var(--color-primary)' : 'var(--color-text-secondary)';
             var badgeBg = rank === 1 ? 'var(--color-primary)' : 'var(--color-primary-light)';
-            return '<a href="detail.html?id=' + wine.id + '" style="text-decoration: none; color: inherit; display: block;">' +
+            return '<a href="/my-wine-cabinet/pages/detail.html?id=' + wine.id + '" style="text-decoration: none; color: inherit; display: block;">' +
               '<div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--color-background-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-md);">' +
                 '<span style="font-family: var(--font-body); font-size: var(--text-lg); font-weight: var(--font-bold); color: ' + rankColor + '; width: 24px; text-align: center; flex-shrink: 0;">' + rank + '</span>' +
                 '<div style="flex: 1; min-width: 0;">' +
@@ -288,3 +288,4 @@
     </script>
 </body>
 </html>
+
