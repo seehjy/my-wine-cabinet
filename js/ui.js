@@ -138,8 +138,7 @@
       'edit-wine.html',
       'tasting-form.html',
       'drinking-form.html',
-      'wishlist-form.html',
-      'detail.html'
+      'wishlist-form.html'
     ];
     var path = window.location.pathname;
     var filename = path.substring(path.lastIndexOf('/') + 1);
