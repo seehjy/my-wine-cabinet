@@ -147,34 +147,65 @@ const AIHelper = (function() {
       var content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
       var reasoningContent = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.reasoning_content;
 
-      var fullContent = content || reasoningContent;
-      if (!fullContent) throw new Error('MiMo 返回为空');
-
-      console.log('识别内容:', fullContent.substring(0, 500));
-
-      // 尝试多种方式解析 JSON
-      var wineInfo = null;
-
-      // 1. 尝试匹配 markdown 代码块中的 JSON
-      var codeBlockMatch = fullContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      if (codeBlockMatch) {
-        try {
-          wineInfo = JSON.parse(codeBlockMatch[1].trim());
-          console.log('从代码块解析成功');
-        } catch(e) {}
+      console.log('content:', content ? content.substring(0, 500) : '(空)');
+      if (reasoningContent) {
+        console.log('reasoning_content:', reasoningContent.substring(0, 500));
       }
 
-      // 2. 尝试用大括号配对方式提取所有 JSON 对象
-      if (!wineInfo) {
-        var candidates = extractAllJsonObjects(fullContent);
-        console.log('找到 ' + candidates.length + ' 个候选 JSON');
-        // 从后往前尝试解析
-        for (var i = candidates.length - 1; i >= 0; i--) {
+      // 尝试多种方式解析 JSON，优先使用 content 字段
+      var wineInfo = null;
+
+      // 1. 先从 content 字段解析
+      if (content) {
+        // 尝试匹配 markdown 代码块中的 JSON
+        var codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (codeBlockMatch) {
           try {
-            var parsed = JSON.parse(candidates[i]);
-            if (parsed && typeof parsed === 'object' && (parsed.brand || parsed.name)) {
-              wineInfo = parsed;
-              console.log('从候选 JSON 解析成功（索引 ' + i + '）:', wineInfo);
+            wineInfo = JSON.parse(codeBlockMatch[1].trim());
+            console.log('从 content 代码块解析成功');
+          } catch(e) {}
+        }
+
+        // 尝试用大括号配对方式提取 JSON
+        if (!wineInfo) {
+          var candidates = extractAllJsonObjects(content);
+          console.log('从 content 找到 ' + candidates.length + ' 个候选 JSON');
+          for (var i = candidates.length - 1; i >= 0; i--) {
+            try {
+              var parsed = JSON.parse(candidates[i]);
+              if (parsed && typeof parsed === 'object' && (parsed.brand || parsed.name)) {
+                wineInfo = parsed;
+                console.log('从 content 候选 JSON 解析成功（索引 ' + i + '）:', wineInfo);
+                break;
+              }
+            } catch(e) {}
+          }
+        }
+
+        // 尝试直接解析 content
+        if (!wineInfo) {
+          try {
+            wineInfo = JSON.parse(content.trim());
+            if (wineInfo && typeof wineInfo === 'object' && (wineInfo.brand || wineInfo.name)) {
+              console.log('直接解析 content JSON 成功:', wineInfo);
+            } else {
+              wineInfo = null;
+            }
+          } catch(e) {}
+        }
+      }
+
+      // 2. 如果 content 解析失败，尝试 reasoning_content
+      if (!wineInfo && reasoningContent) {
+        console.log('尝试从 reasoning_content 解析...');
+        var reasoningCandidates = extractAllJsonObjects(reasoningContent);
+        console.log('从 reasoning_content 找到 ' + reasoningCandidates.length + ' 个候选 JSON');
+        for (var j = reasoningCandidates.length - 1; j >= 0; j--) {
+          try {
+            var parsed2 = JSON.parse(reasoningCandidates[j]);
+            if (parsed2 && typeof parsed2 === 'object' && (parsed2.brand || parsed2.name)) {
+              wineInfo = parsed2;
+              console.log('从 reasoning_content 候选 JSON 解析成功（索引 ' + j + '）:', wineInfo);
               break;
             }
           } catch(e) {}
@@ -184,7 +215,7 @@ const AIHelper = (function() {
       // 3. 尝试从文字中提取关键信息
       if (!wineInfo) {
         console.log('尝试从文字中提取信息...');
-        wineInfo = extractWineInfoFromText(fullContent);
+        wineInfo = extractWineInfoFromText(content || reasoningContent || '');
       }
 
       if (!wineInfo || (!wineInfo.brand && !wineInfo.name)) {
@@ -958,10 +989,25 @@ const AIHelper = (function() {
     options = options || {};
     var category = getWineTypeCategory(wineData.type);
     var fields = ['brand', 'name', 'type', 'degree', 'capacity', 'agingYears', 'productionYear', 'price', 'origin'];
+    
+    var typeMapping = {
+      '白酒': '白酒', '酱香': '酱香', '浓香': '浓香', '清香': '清香', '兼香': '兼香',
+      '米香': '米香', '凤香': '凤香', '芝麻香': '芝麻香', '特香': '特香',
+      '老白干': '老白干', '馥郁香': '馥郁香', '董香': '董香',
+      '红酒': '红酒', '葡萄酒': '红酒', '干红': '红酒', '干白': '红酒',
+      '洋酒': '洋酒', '威士忌': '洋酒', '白兰地': '洋酒', '伏特加': '洋酒',
+      '朗姆酒': '洋酒', '朗姆': '洋酒', '金酒': '洋酒', '龙舌兰': '洋酒',
+      '啤酒': '啤酒', '精酿': '啤酒', '生啤': '啤酒', '纯生': '啤酒',
+      '黄酒': '黄酒', '花雕': '黄酒', '加饭': '黄酒', '女儿红': '黄酒',
+      '清酒': '清酒', '其他': '其他'
+    };
+    
+    var mappedType = typeMapping[wineData.type] || '其他';
+    
     var mapped = {
       brand: wineData.brand,
       name: wineData.name,
-      type: ['酱香', '浓香', '清香', '兼香'].indexOf(wineData.type) >= 0 ? wineData.type : '其他',
+      type: mappedType,
       degree: wineData.degree,
       capacity: wineData.capacity,
       agingYears: wineData.agingYears,
