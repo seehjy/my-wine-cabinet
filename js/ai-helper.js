@@ -27,30 +27,69 @@ const AIHelper = (function() {
     if (!getApiKey()) {
       throw new Error('MiMo API Key 未配置，请在设置页面输入');
     }
-    if (progressCb) progressCb({ stage: 'vision', percent: 30, message: 'AI视觉识别中...' });
 
-    console.log('=== 开始 MiMo 视觉识别 ===');
-    console.log('图片大小:', imageDataUrl.length, 'bytes');
+    var maxRetries = 2;
+    var lastError = null;
 
-    var systemPrompt = `你是一个酒品识别助手。用户会发一张酒的图片，你需要识别酒标上的信息。
+    for (var retry = 0; retry <= maxRetries; retry++) {
+      if (progressCb) progressCb({ stage: 'vision', percent: 30, message: retry > 0 ? 'AI识别重试中...' : 'AI视觉识别中...' });
 
-只看图片，不要思考，直接输出JSON。字段如下：
-- brand: 品牌名称（如：茅台、五粮液、舍得、尊尼获加等）
-- name: 酒名或系列（如：飞天茅台、黑牌、舍得等）
-- type: 类型，只能是：白酒/红酒/啤酒/洋酒/黄酒/清酒/其他
-- degree: 酒精度数，数字（如 53、40、14.5）
-- capacity: 容量毫升数，数字（如 500、750）
-- agingYears: 陈酿年数，数字或null
-- origin: 产地，如：贵州、四川、苏格兰等
-- productionYear: 生产年份，数字或null
+      console.log('=== 开始 MiMo 视觉识别 (第' + (retry + 1) + '次) ===');
+      console.log('图片大小:', imageDataUrl.length, 'bytes');
 
-规则：
-1. 不确定的字段填 null
-2. 如果图片不是酒类，返回 {"error":"非酒类图片"}
-3. 必须只返回一行JSON，不要任何解释、不要markdown、不要换行
+      try {
+        var result = await _doRecognizeByVision(imageDataUrl, progressCb);
+        
+        if (result && result.brand && result.name) {
+          console.log('识别成功，跳过重试');
+          return result;
+        }
+        
+        console.log('识别结果缺少品牌或名称，准备重试...');
+        
+      } catch(e) {
+        lastError = e;
+        console.error('MiMo 识别失败 (第' + (retry + 1) + '次):', e.message);
+      }
+
+      if (retry < maxRetries) {
+        console.log('等待 1 秒后重试...');
+        await new Promise(function(resolve) { setTimeout(resolve, 1000); });
+      }
+    }
+
+    throw lastError || new Error('MiMo 视觉识别失败，已重试 ' + maxRetries + ' 次');
+  }
+
+  async function _doRecognizeByVision(imageDataUrl, progressCb) {
+
+    var systemPrompt = `你是一个专业的酒品识别助手。用户会发一张酒的图片，你需要仔细识别酒标上的所有信息。
+
+仔细观察图片，识别酒标上的文字信息。只输出JSON，不要任何其他文字。
+
+字段定义：
+- brand: 品牌名称（必须填写，如：茅台、五粮液、舍得、尊尼获加、青岛、张裕等）
+- name: 酒名或系列（必须填写，如：飞天茅台、黑牌、舍得、纯生、解百纳等）
+- type: 类型，从以下选项中选一个：白酒、红酒、啤酒、洋酒、黄酒、清酒、其他
+- degree: 酒精度数，提取数字（如：53、40、14.5、4.5），注意看标签上的"度"、"%"、"vol"等标识
+- capacity: 容量毫升数，提取数字（如：500、750、330），注意看标签上的"ml"、"L"等标识
+- agingYears: 陈酿年数，提取数字或null（如：12、15）
+- origin: 产地，如：贵州、四川、苏格兰、法国、山东等
+- productionYear: 生产年份，提取4位数字或null
+
+重要规则：
+1. 仔细观察图片中的所有文字，尽可能识别出品牌和酒名
+2. 即使不确定，也要根据图片内容填写品牌和名称，不要留空
+3. 如果图片是酒瓶、酒标或酒盒，都属于酒类
+4. 啤酒、红酒、白酒、洋酒、黄酒、清酒都是酒类，不要误判为非酒类
+5. 必须只返回一行JSON，不要任何解释、不要markdown格式、不要换行
 
 示例输出：
-{"brand":"茅台","name":"飞天茅台","type":"白酒","degree":53,"capacity":500,"agingYears":null,"origin":"贵州","productionYear":null}`;
+{"brand":"茅台","name":"飞天茅台","type":"白酒","degree":53,"capacity":500,"agingYears":null,"origin":"贵州","productionYear":null}
+{"brand":"尊尼获加","name":"黑牌","type":"洋酒","degree":43,"capacity":750,"agingYears":12,"origin":"苏格兰","productionYear":null}
+{"brand":"青岛","name":"纯生","type":"啤酒","degree":4.5,"capacity":500,"agingYears":null,"origin":"山东","productionYear":null}
+{"brand":"张裕","name":"解百纳","type":"红酒","degree":12.5,"capacity":750,"agingYears":null,"origin":"山东","productionYear":null}
+{"brand":"五粮液","name":"普五","type":"白酒","degree":52,"capacity":500,"agingYears":null,"origin":"四川","productionYear":null}`;
 
     var payload = {
       model: DEEPSEEK_MODEL,
@@ -73,17 +112,28 @@ const AIHelper = (function() {
 
     console.log('发送请求到:', DEEPSEEK_API_URL);
 
-    try {
-      var resp = await fetch(DEEPSEEK_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + getApiKey()
-        },
-        body: JSON.stringify(payload)
-      });
+    var requestStartTime = Date.now();
 
-      console.log('响应状态:', resp.status);
+    var timeoutPromise = new Promise(function(resolve, reject) {
+      setTimeout(function() {
+        reject(new Error('请求超时（20秒）'));
+      }, 20000);
+    });
+
+    try {
+      var resp = await Promise.race([
+        fetch(DEEPSEEK_API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + getApiKey()
+          },
+          body: JSON.stringify(payload)
+        }),
+        timeoutPromise
+      ]);
+
+      console.log('响应状态:', resp.status, ', 耗时:', Date.now() - requestStartTime, 'ms');
 
       if (!resp.ok) {
         var errText = await resp.text();
@@ -162,25 +212,66 @@ const AIHelper = (function() {
   }
 
   async function recognizeByVisionWithProxy(imageDataUrl, progressCb) {
-    var systemPrompt = `你是一个酒品识别助手。用户会发一张酒的图片，你需要识别酒标上的信息。
+    var maxRetries = 2;
+    var lastError = null;
 
-只看图片，不要思考，直接输出JSON。字段如下：
-- brand: 品牌名称（如：茅台、五粮液、舍得、尊尼获加等）
-- name: 酒名或系列（如：飞天茅台、黑牌、舍得等）
-- type: 类型，只能是：白酒/红酒/啤酒/洋酒/黄酒/清酒/其他
-- degree: 酒精度数，数字（如 53、40、14.5）
-- capacity: 容量毫升数，数字（如 500、750）
-- agingYears: 陈酿年数，数字或null
-- origin: 产地，如：贵州、四川、苏格兰等
-- productionYear: 生产年份，数字或null
+    for (var retry = 0; retry <= maxRetries; retry++) {
+      if (progressCb) progressCb({ stage: 'vision', percent: 30, message: retry > 0 ? 'AI识别重试中...' : 'AI视觉识别中...' });
 
-规则：
-1. 不确定的字段填 null
-2. 如果图片不是酒类，返回 {"error":"非酒类图片"}
-3. 必须只返回一行JSON，不要任何解释、不要markdown、不要换行
+      console.log('=== 开始 MiMo 视觉识别(代理) (第' + (retry + 1) + '次) ===');
+
+      try {
+        var result = await _doRecognizeByVisionWithProxy(imageDataUrl, progressCb);
+        
+        if (result && result.brand && result.name) {
+          console.log('识别成功，跳过重试');
+          return result;
+        }
+        
+        console.log('识别结果缺少品牌或名称，准备重试...');
+        
+      } catch(e) {
+        lastError = e;
+        console.error('MiMo 识别失败(代理) (第' + (retry + 1) + '次):', e.message);
+      }
+
+      if (retry < maxRetries) {
+        console.log('等待 1 秒后重试...');
+        await new Promise(function(resolve) { setTimeout(resolve, 1000); });
+      }
+    }
+
+    throw lastError || new Error('MiMo 视觉识别失败(代理)，已重试 ' + maxRetries + ' 次');
+  }
+
+  async function _doRecognizeByVisionWithProxy(imageDataUrl, progressCb) {
+    var systemPrompt = `你是一个专业的酒品识别助手。用户会发一张酒的图片，你需要仔细识别酒标上的所有信息。
+
+仔细观察图片，识别酒标上的文字信息。只输出JSON，不要任何其他文字。
+
+字段定义：
+- brand: 品牌名称（必须填写，如：茅台、五粮液、舍得、尊尼获加、青岛、张裕等）
+- name: 酒名或系列（必须填写，如：飞天茅台、黑牌、舍得、纯生、解百纳等）
+- type: 类型，从以下选项中选一个：白酒、红酒、啤酒、洋酒、黄酒、清酒、其他
+- degree: 酒精度数，提取数字（如：53、40、14.5、4.5），注意看标签上的"度"、"%"、"vol"等标识
+- capacity: 容量毫升数，提取数字（如：500、750、330），注意看标签上的"ml"、"L"等标识
+- agingYears: 陈酿年数，提取数字或null（如：12、15）
+- origin: 产地，如：贵州、四川、苏格兰、法国、山东等
+- productionYear: 生产年份，提取4位数字或null
+
+重要规则：
+1. 仔细观察图片中的所有文字，尽可能识别出品牌和酒名
+2. 即使不确定，也要根据图片内容填写品牌和名称，不要留空
+3. 如果图片是酒瓶、酒标或酒盒，都属于酒类
+4. 啤酒、红酒、白酒、洋酒、黄酒、清酒都是酒类，不要误判为非酒类
+5. 必须只返回一行JSON，不要任何解释、不要markdown格式、不要换行
 
 示例输出：
-{"brand":"茅台","name":"飞天茅台","type":"白酒","degree":53,"capacity":500,"agingYears":null,"origin":"贵州","productionYear":null}`;
+{"brand":"茅台","name":"飞天茅台","type":"白酒","degree":53,"capacity":500,"agingYears":null,"origin":"贵州","productionYear":null}
+{"brand":"尊尼获加","name":"黑牌","type":"洋酒","degree":43,"capacity":750,"agingYears":12,"origin":"苏格兰","productionYear":null}
+{"brand":"青岛","name":"纯生","type":"啤酒","degree":4.5,"capacity":500,"agingYears":null,"origin":"山东","productionYear":null}
+{"brand":"张裕","name":"解百纳","type":"红酒","degree":12.5,"capacity":750,"agingYears":null,"origin":"山东","productionYear":null}
+{"brand":"五粮液","name":"普五","type":"白酒","degree":52,"capacity":500,"agingYears":null,"origin":"四川","productionYear":null}`;
 
     var payload = {
       model: DEEPSEEK_MODEL,
@@ -204,14 +295,23 @@ const AIHelper = (function() {
     var proxyUrl = CORS_PROXY_URL + encodeURIComponent(DEEPSEEK_API_URL);
     console.log('使用 CORS 代理:', proxyUrl);
 
-    var resp = await fetch(proxyUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + getApiKey()
-      },
-      body: JSON.stringify(payload)
+    var proxyTimeoutPromise = new Promise(function(resolve, reject) {
+      setTimeout(function() {
+        reject(new Error('代理请求超时（25秒）'));
+      }, 25000);
     });
+
+    var resp = await Promise.race([
+      fetch(proxyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + getApiKey()
+        },
+        body: JSON.stringify(payload)
+      }),
+      proxyTimeoutPromise
+    ]);
 
     console.log('代理响应状态:', resp.status);
 
@@ -696,7 +796,9 @@ const AIHelper = (function() {
   }
 
   async function recognizeWine(file, progressCb) {
-    var compressed = await compressImage(file, 1600, 0.92);
+    var startTime = Date.now();
+    var compressed = await compressImage(file, 800, 0.7);
+    console.log('图片压缩完成，耗时:', Date.now() - startTime, 'ms, 大小:', Math.round(compressed.dataUrl.length * 0.75 / 1024), 'KB');
     if (progressCb) progressCb({ stage: 'compress', percent: 100, message: '图片处理完成' });
     var fileNameHint = getFileNameHint(file);
 
@@ -706,16 +808,7 @@ const AIHelper = (function() {
       var wineInfo = await recognizeByVision(compressed.dataUrl, progressCb);
       if (wineInfo && (wineInfo.name || wineInfo.brand)) {
         visionResult = wineInfo;
-        if (progressCb) progressCb({ stage: 'product_image', percent: 95, message: '搜索商品图...' });
-        // 商品图搜索失败不影响主流程
-        try {
-          var query = (wineInfo.brand || '') + ' ' + wineInfo.name;
-          var productImg = await searchProductImage(query.trim());
-          visionResult.productImage = productImg;
-        } catch(imgErr) {
-          console.warn('商品图搜索失败，继续:', imgErr);
-          visionResult.productImage = null;
-        }
+        console.log('视觉识别成功，总耗时:', Date.now() - startTime, 'ms');
         if (progressCb) progressCb({ stage: 'done', percent: 100, message: '识别成功！' });
         return {
           image: compressed.dataUrl,
@@ -742,7 +835,7 @@ const AIHelper = (function() {
             origin: wineInfo.origin || '',
             confidence: 90
           }],
-          productImage: productImg,
+          productImage: null,
           imageInfo: compressed,
           ocrFailed: false,
           visionUsed: true,
