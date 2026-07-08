@@ -114,20 +114,24 @@ const AIHelper = (function() {
         } catch(e) {}
       }
 
-      // 2. 尝试匹配普通 JSON
+      // 2. 尝试用大括号配对方式提取所有 JSON 对象
       if (!wineInfo) {
-        var jsonMatch = fullContent.match(/\{[\s\S]*?\}/);
-        if (jsonMatch) {
+        var candidates = extractAllJsonObjects(fullContent);
+        console.log('找到 ' + candidates.length + ' 个候选 JSON');
+        // 从后往前尝试解析
+        for (var i = candidates.length - 1; i >= 0; i--) {
           try {
-            wineInfo = JSON.parse(jsonMatch[0]);
-            console.log('从文本解析 JSON 成功');
-          } catch(e) {
-            console.log('JSON 解析失败:', e);
-          }
+            var parsed = JSON.parse(candidates[i]);
+            if (parsed && typeof parsed === 'object' && (parsed.brand || parsed.name)) {
+              wineInfo = parsed;
+              console.log('从候选 JSON 解析成功（索引 ' + i + '）:', wineInfo);
+              break;
+            }
+          } catch(e) {}
         }
       }
 
-      // 3. 如果还是失败，尝试从文字中提取关键信息
+      // 3. 尝试从文字中提取关键信息
       if (!wineInfo) {
         console.log('尝试从文字中提取信息...');
         wineInfo = extractWineInfoFromText(fullContent);
@@ -231,9 +235,15 @@ const AIHelper = (function() {
       try { wineInfo = JSON.parse(codeBlockMatch[1].trim()); } catch(e) {}
     }
     if (!wineInfo) {
-      var jsonMatch = fullContent.match(/\{[\s\S]*?\}/);
-      if (jsonMatch) {
-        try { wineInfo = JSON.parse(jsonMatch[0]); } catch(e) {}
+      var candidates = extractAllJsonObjects(fullContent);
+      for (var i = candidates.length - 1; i >= 0; i--) {
+        try {
+          var parsed = JSON.parse(candidates[i]);
+          if (parsed && typeof parsed === 'object' && (parsed.brand || parsed.name)) {
+            wineInfo = parsed;
+            break;
+          }
+        } catch(e) {}
       }
     }
     if (!wineInfo) {
@@ -250,6 +260,47 @@ const AIHelper = (function() {
 
     if (progressCb) progressCb({ stage: 'vision_done', percent: 90, message: '识别完成' });
     return wineInfo;
+  }
+
+  // ============ 大括号配对提取所有 JSON 对象 ============
+  function extractAllJsonObjects(text) {
+    var results = [];
+    var i = 0;
+    while (i < text.length) {
+      if (text[i] === '{') {
+        // 找到配对的结束位置
+        var depth = 0;
+        var start = i;
+        var inString = false;
+        var escaped = false;
+        for (var j = i; j < text.length; j++) {
+          var c = text[j];
+          if (inString) {
+            if (escaped) { escaped = false; continue; }
+            if (c === '\\') { escaped = true; continue; }
+            if (c === '"') { inString = false; }
+          } else {
+            if (c === '"') inString = true;
+            else if (c === '{') depth++;
+            else if (c === '}') {
+              depth--;
+              if (depth === 0) {
+                results.push(text.substring(start, j + 1));
+                i = j + 1;
+                break;
+              }
+            }
+          }
+          if (j === text.length - 1) {
+            // 没有找到配对
+            i = text.length;
+            break;
+          }
+        }
+      }
+      i++;
+    }
+    return results;
   }
 
   // ============ 从文字中提取酒品信息 ============
