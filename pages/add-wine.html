@@ -555,7 +555,7 @@
   <script src="/my-wine-cabinet/js/ui.js"></script>
   <script src="/my-wine-cabinet/js/onboarding.js?v=20260702f"></script>
   <script src="/my-wine-cabinet/js/wine-db.js?v=20260702f"></script>
-  <script src="/my-wine-cabinet/js/ai-helper.js?v=20260708a"></script>
+  <script src="/my-wine-cabinet/js/ai-helper.js?v=20260708b"></script>
   <script>
     window.handleBackFromSupplement = function() {
       var urlParams = new URLSearchParams(window.location.search);
@@ -1554,6 +1554,8 @@
         resetCascade();
         reverseMatchCascade(typeStr);
       }
+
+      window.setCascadeFromType = setCascadeFromType;
 
       window.resetCascade = function() {
         var level1 = document.getElementById('cascade-level1');
