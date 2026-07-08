@@ -1570,7 +1570,7 @@ const AIHelper = (function() {
       if (result.match) {
         var matches = result.matches && result.matches.length > 0 ? result.matches : [result.match];
         var bestMatch = result.match;
-        var stdImgUrl = result.productImage || WineDB.generateImageUrl(bestMatch);
+        var stdImgUrl = result.productImage || result.image || WineDB.generateFallbackImage(bestMatch);
         var fallbackImg = WineDB.generateFallbackImage(bestMatch);
         var bestConfidence = bestMatch.confidence || 0;
 
