@@ -32,28 +32,25 @@ const AIHelper = (function() {
     console.log('=== 开始 MiMo 视觉识别 ===');
     console.log('图片大小:', imageDataUrl.length, 'bytes');
 
-    var systemPrompt = `你是中国酒类识别专家，擅长识别各种白酒、红酒、啤酒、洋酒等。
+    var systemPrompt = `你是一个酒品识别助手。用户会发一张酒的图片，你需要识别酒标上的信息。
 
-请仔细观察图片中的酒瓶/酒盒，识别以下信息：
-- brand: 品牌（如：茅台、五粮液、洋河、泸州老窖、剑南春、汾酒、郎酒、古井贡酒、舍得、水井坊、习酒、国台、珍酒等）
-- name: 酒名/系列（如：飞天茅台、普五、水晶剑、青花20、红花郎10等）
-- type: 类型（白酒/红酒/啤酒/洋酒/黄酒/清酒/其他）
-- degree: 酒精度数（数字，如53、52、42、38等）
-- capacity: 容量（毫升数字，如500、375、1000等）
-- agingYears: 陈酿年数（数字或null，如15、12、8等，指酒的陈酿年份，不是生产年份）
-- origin: 产地（如：贵州遵义、四川宜宾、山西汾阳等，不确定可留空）
-- productionYear: 生产年份（数字或null，图片上能看到生产日期的话填，否则留null）
+只看图片，不要思考，直接输出JSON。字段如下：
+- brand: 品牌名称（如：茅台、五粮液、舍得、尊尼获加等）
+- name: 酒名或系列（如：飞天茅台、黑牌、舍得等）
+- type: 类型，只能是：白酒/红酒/啤酒/洋酒/黄酒/清酒/其他
+- degree: 酒精度数，数字（如 53、40、14.5）
+- capacity: 容量毫升数，数字（如 500、750）
+- agingYears: 陈酿年数，数字或null
+- origin: 产地，如：贵州、四川、苏格兰等
+- productionYear: 生产年份，数字或null
 
-识别要求：
-1. 仔细看酒标上的文字，品牌和酒名要准确
-2. 度数和容量看酒标上的标注
-3. 如果是白酒，注意区分香型（酱香/浓香/清香/兼香等），填在type字段
-4. 不确定的字段填null，不要猜测
-5. 如果图片完全不是酒类，返回 {"error":"非酒类图片"}
-6. 只返回JSON格式，不要任何额外文字和解释
+规则：
+1. 不确定的字段填 null
+2. 如果图片不是酒类，返回 {"error":"非酒类图片"}
+3. 必须只返回一行JSON，不要任何解释、不要markdown、不要换行
 
-返回格式示例：
-{"brand":"茅台","name":"飞天茅台","type":"酱香","degree":53,"capacity":500,"agingYears":null,"origin":"贵州遵义","productionYear":null}`;
+示例输出：
+{"brand":"茅台","name":"飞天茅台","type":"白酒","degree":53,"capacity":500,"agingYears":null,"origin":"贵州","productionYear":null}`;
 
     var payload = {
       model: DEEPSEEK_MODEL,
@@ -65,13 +62,13 @@ const AIHelper = (function() {
         {
           role: 'user',
           content: [
-            { type: 'text', text: '请识别这瓶酒的详细信息' },
+            { type: 'text', text: '请识别这瓶酒的详细信息，只返回JSON' },
             { type: 'image_url', image_url: { url: imageDataUrl } }
           ]
         }
       ],
       temperature: 0.1,
-      max_tokens: 800
+      max_tokens: 4000
     };
 
     console.log('发送请求到:', DEEPSEEK_API_URL);
@@ -157,28 +154,25 @@ const AIHelper = (function() {
   }
 
   async function recognizeByVisionWithProxy(imageDataUrl, progressCb) {
-    var systemPrompt = `你是中国酒类识别专家，擅长识别各种白酒、红酒、啤酒、洋酒等。
+    var systemPrompt = `你是一个酒品识别助手。用户会发一张酒的图片，你需要识别酒标上的信息。
 
-请仔细观察图片中的酒瓶/酒盒，识别以下信息：
-- brand: 品牌（如：茅台、五粮液、洋河、泸州老窖、剑南春、汾酒、郎酒、古井贡酒、舍得、水井坊、习酒、国台、珍酒等）
-- name: 酒名/系列（如：飞天茅台、普五、水晶剑、青花20、红花郎10等）
-- type: 类型（白酒/红酒/啤酒/洋酒/黄酒/清酒/其他）
-- degree: 酒精度数（数字，如53、52、42、38等）
-- capacity: 容量（毫升数字，如500、375、1000等）
-- agingYears: 陈酿年数（数字或null，如15、12、8等，指酒的陈酿年份，不是生产年份）
-- origin: 产地（如：贵州遵义、四川宜宾、山西汾阳等，不确定可留空）
-- productionYear: 生产年份（数字或null，图片上能看到生产日期的话填，否则留null）
+只看图片，不要思考，直接输出JSON。字段如下：
+- brand: 品牌名称（如：茅台、五粮液、舍得、尊尼获加等）
+- name: 酒名或系列（如：飞天茅台、黑牌、舍得等）
+- type: 类型，只能是：白酒/红酒/啤酒/洋酒/黄酒/清酒/其他
+- degree: 酒精度数，数字（如 53、40、14.5）
+- capacity: 容量毫升数，数字（如 500、750）
+- agingYears: 陈酿年数，数字或null
+- origin: 产地，如：贵州、四川、苏格兰等
+- productionYear: 生产年份，数字或null
 
-识别要求：
-1. 仔细看酒标上的文字，品牌和酒名要准确
-2. 度数和容量看酒标上的标注
-3. 如果是白酒，注意区分香型（酱香/浓香/清香/兼香等），填在type字段
-4. 不确定的字段填null，不要猜测
-5. 如果图片完全不是酒类，返回 {"error":"非酒类图片"}
-6. 只返回JSON格式，不要任何额外文字和解释
+规则：
+1. 不确定的字段填 null
+2. 如果图片不是酒类，返回 {"error":"非酒类图片"}
+3. 必须只返回一行JSON，不要任何解释、不要markdown、不要换行
 
-返回格式示例：
-{"brand":"茅台","name":"飞天茅台","type":"酱香","degree":53,"capacity":500,"agingYears":null,"origin":"贵州遵义","productionYear":null}`;
+示例输出：
+{"brand":"茅台","name":"飞天茅台","type":"白酒","degree":53,"capacity":500,"agingYears":null,"origin":"贵州","productionYear":null}`;
 
     var payload = {
       model: DEEPSEEK_MODEL,
@@ -190,13 +184,13 @@ const AIHelper = (function() {
         {
           role: 'user',
           content: [
-            { type: 'text', text: '请识别这瓶酒的详细信息' },
+            { type: 'text', text: '请识别这瓶酒的详细信息，只返回JSON' },
             { type: 'image_url', image_url: { url: imageDataUrl } }
           ]
         }
       ],
       temperature: 0.1,
-      max_tokens: 800
+      max_tokens: 4000
     };
 
     var proxyUrl = CORS_PROXY_URL + encodeURIComponent(DEEPSEEK_API_URL);
