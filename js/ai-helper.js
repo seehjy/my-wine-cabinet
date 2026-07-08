@@ -324,8 +324,9 @@ const AIHelper = (function() {
     return info;
   }
 
-  // ============ 百度商品图搜索 ============
+  // ============ 商品图搜索（带重试和降级）============
   async function searchProductImage(query) {
+    // 方案 1: 直接调用百度图片搜索
     try {
       var searchUrl = 'https://image.baidu.com/search/acjson?tn=resultjson_com&word=' +
         encodeURIComponent(query + ' 酒 官方 商品图') +
@@ -333,31 +334,51 @@ const AIHelper = (function() {
 
       var resp = await fetch(searchUrl, {
         method: 'GET',
-        headers: { 'Accept': 'application/json' }
+        headers: { 'Accept': 'application/json' },
+        mode: 'cors'
       });
-      if (!resp.ok) throw new Error('百度图片搜索错误(' + resp.status + ')');
-      var data = await resp.json();
-
-      if (data.data && data.data.length > 0) {
-        var valid = data.data.filter(function(item) {
-          return item && item.thumbURL && item.width && item.height &&
-            item.width >= 200 && item.height >= 200;
-        });
-        if (valid.length > 0) {
-          // 优选正方形图片
-          valid.sort(function(a, b) {
-            var aDiff = Math.abs((a.width || 0) - (a.height || 0));
-            var bDiff = Math.abs((b.width || 0) - (b.height || 0));
-            return aDiff - bDiff;
+      if (resp.ok) {
+        var data = await resp.json();
+        if (data.data && data.data.length > 0) {
+          var valid = data.data.filter(function(item) {
+            return item && item.thumbURL && item.width && item.height &&
+              item.width >= 200 && item.height >= 200;
           });
-          return valid[0].thumbURL;
+          if (valid.length > 0) {
+            valid.sort(function(a, b) {
+              var aDiff = Math.abs((a.width || 0) - (a.height || 0));
+              var bDiff = Math.abs((b.width || 0) - (b.height || 0));
+              return aDiff - bDiff;
+            });
+            return valid[0].thumbURL;
+          }
         }
       }
-      return null;
     } catch(e) {
-      console.warn('Baidu image search failed:', e);
-      return null;
+      console.warn('百度图片搜索失败（CORS 或网络）:', e.message);
     }
+
+    // 方案 2: 使用 CORS 代理
+    try {
+      var proxyUrl = CORS_PROXY_URL + encodeURIComponent('https://image.baidu.com/search/acjson?tn=resultjson_com&word=' +
+        encodeURIComponent(query + ' 酒 官方 商品图') + '&pn=0&rn=10&ipn=rj&ie=utf-8&oe=utf-8');
+      var resp2 = await fetch(proxyUrl, { method: 'GET' });
+      if (resp2.ok) {
+        var data2 = await resp2.json();
+        if (data2.data && data2.data.length > 0) {
+          var valid2 = data2.data.filter(function(item) {
+            return item && item.thumbURL;
+          });
+          if (valid2.length > 0) {
+            return valid2[0].thumbURL;
+          }
+        }
+      }
+    } catch(e) {
+      console.warn('代理图片搜索失败:', e.message);
+    }
+
+    return null;
   }
 
   function getExifOrientation(file) {
@@ -569,12 +590,18 @@ const AIHelper = (function() {
     var visionError = null;
     try {
       var wineInfo = await recognizeByVision(compressed.dataUrl, progressCb);
-      if (wineInfo && wineInfo.name) {
+      if (wineInfo && (wineInfo.name || wineInfo.brand)) {
         visionResult = wineInfo;
         if (progressCb) progressCb({ stage: 'product_image', percent: 95, message: '搜索商品图...' });
-        var query = (wineInfo.brand || '') + ' ' + wineInfo.name;
-        var productImg = await searchProductImage(query.trim());
-        visionResult.productImage = productImg;
+        // 商品图搜索失败不影响主流程
+        try {
+          var query = (wineInfo.brand || '') + ' ' + wineInfo.name;
+          var productImg = await searchProductImage(query.trim());
+          visionResult.productImage = productImg;
+        } catch(imgErr) {
+          console.warn('商品图搜索失败，继续:', imgErr);
+          visionResult.productImage = null;
+        }
         if (progressCb) progressCb({ stage: 'done', percent: 100, message: '识别成功！' });
         return {
           image: compressed.dataUrl,
