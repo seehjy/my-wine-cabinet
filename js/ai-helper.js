@@ -1640,7 +1640,7 @@ const AIHelper = (function() {
               checkEl.innerHTML = isSelected ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '';
             });
             bestMatch = w;
-            stdImgUrl = WineDB.generateImageUrl(w);
+            stdImgUrl = (w && w.fullName) ? WineDB.generateImageUrl(w) : WineDB.generateFallbackImage(w);
             // 切换酒款后不再使用初始 productImage
             result.productImage = null;
             updateImgChoice(w);
@@ -1731,7 +1731,14 @@ const AIHelper = (function() {
               return;
             }
             // 回退到文生图
-            var url = WineDB.generateImageUrl(wine) + '&t=' + Date.now();
+            var url;
+            if (wine && wine.fullName) {
+              url = WineDB.generateImageUrl(wine) + '&t=' + Date.now();
+            } else {
+              // 视觉识别结果没有 fullName，直接使用 fallback
+              loadFallbackStdImage();
+              return;
+            }
             loadImageWithTimeout(url, 10000).then(function(img) {
               var dataUrl = imageToDataURL(img);
               if (dataUrl) {
@@ -1952,6 +1959,10 @@ const AIHelper = (function() {
       });
 
       function generateAiImage() {
+        if (!wine || !wine.fullName) {
+          setFallback();
+          return;
+        }
         var stdUrl = WineDB.generateImageUrl(wine) + '&t=' + Date.now();
         loadImageWithTimeout(stdUrl, 12000).then(function(img) {
           var dataUrl = imageToDataURL(img);
