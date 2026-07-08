@@ -603,11 +603,14 @@ const AIHelper = (function() {
       '尊尼获加 黑牌 -> {"type":"洋酒","detailType":"威士忌","degree":40,"capacity":700,"agingYears":12,"origin":"苏格兰","description":"尊尼获加黑牌是调和威士忌"}';
 
     try {
-      var resp = await fetch(DEEPSEEK_API_URL, {
+      var proxyUrl = CORS_PROXY_URL + encodeURIComponent(DEEPSEEK_API_URL);
+      console.log('AI 补充信息使用 CORS 代理:', proxyUrl);
+
+      var resp = await fetch(proxyUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + MIMO_API_KEY
+          'Authorization': 'Bearer ' + getApiKey()
         },
         body: JSON.stringify({
           model: DEEPSEEK_MODEL,
