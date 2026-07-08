@@ -4,15 +4,15 @@
  */
 const AIHelper = (function() {
   // ============ API 配置 ============
-  // DeepSeek Vision API（视觉识图）
-  var _apiKeyPart1 = 'sk-93f62600c1894006963';
-  var _apiKeyPart2 = 'f20eee532ff16';
+  // 小米 MiMo 多模态 API（支持图片识别）
+  var _apiKeyPart1 = 'sk-cwbs827t2u3m5dtc57gca';
+  var _apiKeyPart2 = 'suc810ha9fitrzfkjv4v831mxop';
   function getApiKey() {
-    var savedKey = localStorage.getItem('deepseek_api_key');
+    var savedKey = localStorage.getItem('mimo_api_key');
     return savedKey || (_apiKeyPart1 + _apiKeyPart2);
   }
-  const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
-  const DEEPSEEK_MODEL = 'deepseek-chat';
+  const DEEPSEEK_API_URL = 'https://api.xiaomimimo.com/v1/chat/completions';
+  const DEEPSEEK_MODEL = 'mimo-v2.5';
 
   const TESSERACT_CDN = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
   let tesseractLoaded = false;
@@ -24,7 +24,7 @@ const AIHelper = (function() {
   // ============ DeepSeek Vision 识别 ============
   async function recognizeByVision(imageDataUrl, progressCb) {
     if (!getApiKey()) {
-      throw new Error('DeepSeek API Key 未配置，请在设置页面输入');
+      throw new Error('MiMo API Key 未配置，请在设置页面输入');
     }
     if (progressCb) progressCb({ stage: 'vision', percent: 30, message: 'AI视觉识别中...' });
 
