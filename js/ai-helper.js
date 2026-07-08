@@ -98,15 +98,18 @@ const AIHelper = (function() {
       console.log('API 返回:', JSON.stringify(data).substring(0, 500));
 
       var content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-      if (!content) throw new Error('MiMo 返回为空');
+      var reasoningContent = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.reasoning_content;
 
-      console.log('识别内容:', content.substring(0, 500));
+      var fullContent = content || reasoningContent;
+      if (!fullContent) throw new Error('MiMo 返回为空');
+
+      console.log('识别内容:', fullContent.substring(0, 500));
 
       // 尝试多种方式解析 JSON
       var wineInfo = null;
 
       // 1. 尝试匹配 markdown 代码块中的 JSON
-      var codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      var codeBlockMatch = fullContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
       if (codeBlockMatch) {
         try {
           wineInfo = JSON.parse(codeBlockMatch[1].trim());
@@ -116,7 +119,7 @@ const AIHelper = (function() {
 
       // 2. 尝试匹配普通 JSON
       if (!wineInfo) {
-        var jsonMatch = content.match(/\{[\s\S]*?\}/);
+        var jsonMatch = fullContent.match(/\{[\s\S]*?\}/);
         if (jsonMatch) {
           try {
             wineInfo = JSON.parse(jsonMatch[0]);
@@ -130,11 +133,11 @@ const AIHelper = (function() {
       // 3. 如果还是失败，尝试从文字中提取关键信息
       if (!wineInfo) {
         console.log('尝试从文字中提取信息...');
-        wineInfo = extractWineInfoFromText(content);
+        wineInfo = extractWineInfoFromText(fullContent);
       }
 
       if (!wineInfo || (!wineInfo.brand && !wineInfo.name)) {
-        throw new Error('MiMo 返回格式异常: ' + content.substring(0, 200));
+        throw new Error('MiMo 返回格式异常: ' + fullContent.substring(0, 200));
       }
 
       console.log('解析结果:', wineInfo);
@@ -220,28 +223,31 @@ const AIHelper = (function() {
     console.log('代理 API 返回:', JSON.stringify(data).substring(0, 500));
 
     var content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-    if (!content) throw new Error('MiMo 返回为空');
+    var reasoningContent = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.reasoning_content;
 
-    console.log('代理识别内容:', content.substring(0, 500));
+    var fullContent = content || reasoningContent;
+    if (!fullContent) throw new Error('MiMo 返回为空');
+
+    console.log('代理识别内容:', fullContent.substring(0, 500));
 
     // 使用相同的解析逻辑
     var wineInfo = null;
-    var codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    var codeBlockMatch = fullContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (codeBlockMatch) {
       try { wineInfo = JSON.parse(codeBlockMatch[1].trim()); } catch(e) {}
     }
     if (!wineInfo) {
-      var jsonMatch = content.match(/\{[\s\S]*?\}/);
+      var jsonMatch = fullContent.match(/\{[\s\S]*?\}/);
       if (jsonMatch) {
         try { wineInfo = JSON.parse(jsonMatch[0]); } catch(e) {}
       }
     }
     if (!wineInfo) {
-      wineInfo = extractWineInfoFromText(content);
+      wineInfo = extractWineInfoFromText(fullContent);
     }
 
     if (!wineInfo || (!wineInfo.brand && !wineInfo.name)) {
-      throw new Error('MiMo 返回格式异常: ' + content.substring(0, 200));
+      throw new Error('MiMo 返回格式异常: ' + fullContent.substring(0, 200));
     }
 
     console.log('代理解析结果:', wineInfo);
