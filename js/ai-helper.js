@@ -100,11 +100,42 @@ const AIHelper = (function() {
       var content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
       if (!content) throw new Error('MiMo 返回为空');
 
-      console.log('识别内容:', content.substring(0, 300));
+      console.log('识别内容:', content.substring(0, 500));
 
-      var jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('MiMo 返回格式异常: ' + content.substring(0, 200));
-      var wineInfo = JSON.parse(jsonMatch[0]);
+      // 尝试多种方式解析 JSON
+      var wineInfo = null;
+
+      // 1. 尝试匹配 markdown 代码块中的 JSON
+      var codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch) {
+        try {
+          wineInfo = JSON.parse(codeBlockMatch[1].trim());
+          console.log('从代码块解析成功');
+        } catch(e) {}
+      }
+
+      // 2. 尝试匹配普通 JSON
+      if (!wineInfo) {
+        var jsonMatch = content.match(/\{[\s\S]*?\}/);
+        if (jsonMatch) {
+          try {
+            wineInfo = JSON.parse(jsonMatch[0]);
+            console.log('从文本解析 JSON 成功');
+          } catch(e) {
+            console.log('JSON 解析失败:', e);
+          }
+        }
+      }
+
+      // 3. 如果还是失败，尝试从文字中提取关键信息
+      if (!wineInfo) {
+        console.log('尝试从文字中提取信息...');
+        wineInfo = extractWineInfoFromText(content);
+      }
+
+      if (!wineInfo || (!wineInfo.brand && !wineInfo.name)) {
+        throw new Error('MiMo 返回格式异常: ' + content.substring(0, 200));
+      }
 
       console.log('解析结果:', wineInfo);
 
@@ -191,11 +222,27 @@ const AIHelper = (function() {
     var content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
     if (!content) throw new Error('MiMo 返回为空');
 
-    console.log('代理识别内容:', content.substring(0, 300));
+    console.log('代理识别内容:', content.substring(0, 500));
 
-    var jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('MiMo 返回格式异常: ' + content.substring(0, 200));
-    var wineInfo = JSON.parse(jsonMatch[0]);
+    // 使用相同的解析逻辑
+    var wineInfo = null;
+    var codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (codeBlockMatch) {
+      try { wineInfo = JSON.parse(codeBlockMatch[1].trim()); } catch(e) {}
+    }
+    if (!wineInfo) {
+      var jsonMatch = content.match(/\{[\s\S]*?\}/);
+      if (jsonMatch) {
+        try { wineInfo = JSON.parse(jsonMatch[0]); } catch(e) {}
+      }
+    }
+    if (!wineInfo) {
+      wineInfo = extractWineInfoFromText(content);
+    }
+
+    if (!wineInfo || (!wineInfo.brand && !wineInfo.name)) {
+      throw new Error('MiMo 返回格式异常: ' + content.substring(0, 200));
+    }
 
     console.log('代理解析结果:', wineInfo);
 
@@ -203,6 +250,72 @@ const AIHelper = (function() {
 
     if (progressCb) progressCb({ stage: 'vision_done', percent: 90, message: '识别完成' });
     return wineInfo;
+  }
+
+  // ============ 从文字中提取酒品信息 ============
+  function extractWineInfoFromText(text) {
+    var info = { brand: null, name: null, type: null, degree: null, capacity: null, agingYears: null, origin: null, productionYear: null };
+
+    // 常见品牌列表
+    var brands = ['茅台', '五粮液', '洋河', '泸州老窖', '剑南春', '汾酒', '郎酒', '古井贡酒', '舍得', '水井坊', '习酒', '国台', '珍酒', '西凤', '董酒', '双沟', '今世缘', '迎驾贡酒', '口子窖', '酒鬼酒', '四特酒', '白云边', '稻花香', '枝江', '黄鹤楼', '劲酒', '椰岛', '张裕', '长城', '奔富', '拉菲', '马爹利', '轩尼诗', '人头马', '芝华士', '尊尼获加', '百龄坛', '绝对伏特加', '灰雁', '百加得', '哈瓦那俱乐部', '摩根船长', '青岛', '雪花', '百威', '喜力', '嘉士伯', '科罗娜', '福佳', '教士', '麒麟', '朝日', '三得利'];
+
+    // 尝试匹配品牌
+    for (var i = 0; i < brands.length; i++) {
+      if (text.includes(brands[i])) {
+        info.brand = brands[i];
+        break;
+      }
+    }
+
+    // 尝试匹配度数 (如 52度、52°、52)
+    var degreeMatch = text.match(/(\d{1,2})\s*[度°]/);
+    if (!degreeMatch) degreeMatch = text.match(/(\d{1,2})%\s*(?:vol|酒精)/i);
+    if (degreeMatch) info.degree = parseInt(degreeMatch[1]);
+
+    // 尝试匹配容量 (如 500ml、500毫升、500mL)
+    var capacityMatch = text.match(/(\d{3,4})\s*(?:ml|mL|毫升|ML)/);
+    if (!capacityMatch) capacityMatch = text.match(/(\d{1})\s*(?:L|升)/);
+    if (capacityMatch) info.capacity = parseInt(capacityMatch[1]);
+
+    // 尝试匹配类型
+    var types = {
+      '酱香': '酱香', '浓香': '浓香', '清香': '清香', '兼香': '兼香',
+      '米香': '米香', '凤香': '凤香', '芝麻香': '芝麻香', '特香': '特香',
+      '老白干': '老白干', '馥郁香': '馥郁香', '董香': '董香',
+      '红酒': '红酒', '葡萄酒': '红酒', '干红': '红酒', '干白': '红酒',
+      '啤酒': '啤酒', '精酿': '啤酒', '生啤': '啤酒', '纯生': '啤酒',
+      '洋酒': '洋酒', '威士忌': '洋酒', '伏特加': '洋酒', '白兰地': '洋酒', '龙舌兰': '洋酒', '朗姆酒': '洋酒',
+      '黄酒': '黄酒', '清酒': '清酒', '白酒': '白酒'
+    };
+    for (var key in types) {
+      if (text.includes(key)) {
+        info.type = types[key];
+        break;
+      }
+    }
+
+    // 尝试匹配陈酿年数
+    var agingMatch = text.match(/(\d{1,2})\s*年\s*(?:陈酿|陈|窖藏|窖)/);
+    if (agingMatch) info.agingYears = parseInt(agingMatch[1]);
+
+    // 尝试匹配生产年份
+    var yearMatch = text.match(/(?:生产|出厂|灌装|日期).*?(\d{4})/);
+    if (!yearMatch) yearMatch = text.match(/(\d{4})\s*年/);
+    if (yearMatch) {
+      var year = parseInt(yearMatch[1]);
+      if (year >= 1900 && year <= 2030) info.productionYear = year;
+    }
+
+    // 尝试匹配产地
+    var origins = ['贵州', '四川', '山西', '江苏', '安徽', '湖北', '湖南', '山东', '河南', '河北', '陕西', '江西', '广西', '广东', '福建', '浙江', '云南', '甘肃', '新疆', '宁夏', '内蒙古', '北京', '上海', '天津', '重庆', '遵义', '宜宾', '泸州', '汾阳', '宿迁', '亳州', '十堰', '岳阳', '潍坊', '澳大利亚', '法国', '智利', '美国', '意大利', '西班牙', '德国', '日本', '韩国'];
+    for (var j = 0; j < origins.length; j++) {
+      if (text.includes(origins[j])) {
+        info.origin = origins[j];
+        break;
+      }
+    }
+
+    return info;
   }
 
   // ============ 百度商品图搜索 ============
