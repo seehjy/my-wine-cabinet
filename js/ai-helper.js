@@ -935,8 +935,10 @@ const AIHelper = (function() {
     recognizeWine(file, function(p) {
       overlay.updateProgress(p.stage, p.percent, p.message);
     }).then(function(result) {
+      console.log('quickRecognize then 分支，result.match:', result ? result.match : '无');
       overlay.showResult(result);
     }).catch(function(err) {
+      console.log('quickRecognize catch 分支，错误:', err);
       overlay.showResult({ image: null, match: null, matches: [], ocrFailed: true });
     });
   }
@@ -1550,6 +1552,10 @@ const AIHelper = (function() {
     }
 
     function showResult(result) {
+      console.log('showResult 被调用，result:', result);
+      console.log('result.match:', result ? result.match : 'result为空');
+      console.log('result.match truthy?', !!(result && result.match));
+      
       var loadingState = overlay.querySelector('.ai-loading-state');
       var resultState = overlay.querySelector('.ai-result-state');
       var box = resultState;
