@@ -837,35 +837,31 @@ const AIHelper = (function() {
     var visionError = null;
     try {
       var wineInfo = await recognizeByVision(compressed.dataUrl, progressCb);
+      console.log('recognizeByVision 返回:', wineInfo ? '有数据' : '空', wineInfo ? ('brand=' + wineInfo.brand + ', name=' + wineInfo.name) : '');
       if (wineInfo && (wineInfo.name || wineInfo.brand)) {
         visionResult = wineInfo;
         console.log('视觉识别成功，总耗时:', Date.now() - startTime, 'ms');
         if (progressCb) progressCb({ stage: 'done', percent: 100, message: '识别成功！' });
+        
+        var matchData = {
+          brand: wineInfo.brand || '',
+          name: wineInfo.name || '',
+          type: wineInfo.type || '其他',
+          degree: wineInfo.degree || null,
+          capacity: wineInfo.capacity || null,
+          agingYears: wineInfo.agingYears || null,
+          productionYear: wineInfo.productionYear || null,
+          origin: wineInfo.origin || '',
+          confidence: 90
+        };
+        
+        console.log('recognizeWine 返回 match:', matchData.brand, matchData.name, matchData.type);
+        
         return {
           image: compressed.dataUrl,
           text: '',
-          match: {
-            brand: wineInfo.brand || '',
-            name: wineInfo.name || '',
-            type: wineInfo.type || '其他',
-            degree: wineInfo.degree || null,
-            capacity: wineInfo.capacity || null,
-            agingYears: wineInfo.agingYears || null,
-            productionYear: wineInfo.productionYear || null,
-            origin: wineInfo.origin || '',
-            confidence: 90
-          },
-          matches: [{
-            brand: wineInfo.brand || '',
-            name: wineInfo.name || '',
-            type: wineInfo.type || '其他',
-            degree: wineInfo.degree || null,
-            capacity: wineInfo.capacity || null,
-            agingYears: wineInfo.agingYears || null,
-            productionYear: wineInfo.productionYear || null,
-            origin: wineInfo.origin || '',
-            confidence: 90
-          }],
+          match: matchData,
+          matches: [matchData],
           productImage: null,
           imageInfo: compressed,
           ocrFailed: false,
