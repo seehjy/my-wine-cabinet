@@ -13,6 +13,7 @@ const AIHelper = (function() {
   }
   const DEEPSEEK_API_URL = 'https://api.xiaomimimo.com/v1/chat/completions';
   const DEEPSEEK_MODEL = 'mimo-v2.5';
+  const CORS_PROXY_URL = 'https://api.allorigins.win/raw?url=';
 
   const TESSERACT_CDN = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
   let tesseractLoaded = false;
@@ -21,14 +22,16 @@ const AIHelper = (function() {
   let recentWines = [];
   const MAX_RECENT = 8;
 
-  // ============ DeepSeek Vision 识别 ============
+  // ============ MiMo 视觉识别 ============
   async function recognizeByVision(imageDataUrl, progressCb) {
     if (!getApiKey()) {
       throw new Error('MiMo API Key 未配置，请在设置页面输入');
     }
     if (progressCb) progressCb({ stage: 'vision', percent: 30, message: 'AI视觉识别中...' });
 
-    var base64 = imageDataUrl.replace(/^data:image\/\w+;base64,/, '');
+    console.log('=== 开始 MiMo 视觉识别 ===');
+    console.log('图片大小:', imageDataUrl.length, 'bytes');
+
     var systemPrompt = `你是中国酒类识别专家，擅长识别各种白酒、红酒、啤酒、洋酒等。
 
 请仔细观察图片中的酒瓶/酒盒，识别以下信息：
@@ -71,7 +74,101 @@ const AIHelper = (function() {
       max_tokens: 800
     };
 
-    var resp = await fetch(DEEPSEEK_API_URL, {
+    console.log('发送请求到:', DEEPSEEK_API_URL);
+
+    try {
+      var resp = await fetch(DEEPSEEK_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + getApiKey()
+        },
+        body: JSON.stringify(payload)
+      });
+
+      console.log('响应状态:', resp.status);
+
+      if (!resp.ok) {
+        var errText = await resp.text();
+        console.error('API 错误:', errText);
+        throw new Error('MiMo API 错误(' + resp.status + '): ' + errText.substring(0, 200));
+      }
+
+      var data = await resp.json();
+      console.log('API 返回:', JSON.stringify(data).substring(0, 500));
+
+      var content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+      if (!content) throw new Error('MiMo 返回为空');
+
+      console.log('识别内容:', content.substring(0, 300));
+
+      var jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('MiMo 返回格式异常: ' + content.substring(0, 200));
+      var wineInfo = JSON.parse(jsonMatch[0]);
+
+      console.log('解析结果:', wineInfo);
+
+      if (wineInfo.error) throw new Error(wineInfo.error);
+
+      if (progressCb) progressCb({ stage: 'vision_done', percent: 90, message: '识别完成' });
+      return wineInfo;
+    } catch(e) {
+      console.error('MiMo API 直接调用失败:', e);
+      if (e.message && e.message.includes('CORS') || e.message.includes('fetch')) {
+        console.log('尝试使用 CORS 代理...');
+        return await recognizeByVisionWithProxy(imageDataUrl, progressCb);
+      }
+      throw e;
+    }
+  }
+
+  async function recognizeByVisionWithProxy(imageDataUrl, progressCb) {
+    var systemPrompt = `你是中国酒类识别专家，擅长识别各种白酒、红酒、啤酒、洋酒等。
+
+请仔细观察图片中的酒瓶/酒盒，识别以下信息：
+- brand: 品牌（如：茅台、五粮液、洋河、泸州老窖、剑南春、汾酒、郎酒、古井贡酒、舍得、水井坊、习酒、国台、珍酒等）
+- name: 酒名/系列（如：飞天茅台、普五、水晶剑、青花20、红花郎10等）
+- type: 类型（白酒/红酒/啤酒/洋酒/黄酒/清酒/其他）
+- degree: 酒精度数（数字，如53、52、42、38等）
+- capacity: 容量（毫升数字，如500、375、1000等）
+- agingYears: 陈酿年数（数字或null，如15、12、8等，指酒的陈酿年份，不是生产年份）
+- origin: 产地（如：贵州遵义、四川宜宾、山西汾阳等，不确定可留空）
+- productionYear: 生产年份（数字或null，图片上能看到生产日期的话填，否则留null）
+
+识别要求：
+1. 仔细看酒标上的文字，品牌和酒名要准确
+2. 度数和容量看酒标上的标注
+3. 如果是白酒，注意区分香型（酱香/浓香/清香/兼香等），填在type字段
+4. 不确定的字段填null，不要猜测
+5. 如果图片完全不是酒类，返回 {"error":"非酒类图片"}
+6. 只返回JSON格式，不要任何额外文字和解释
+
+返回格式示例：
+{"brand":"茅台","name":"飞天茅台","type":"酱香","degree":53,"capacity":500,"agingYears":null,"origin":"贵州遵义","productionYear":null}`;
+
+    var payload = {
+      model: DEEPSEEK_MODEL,
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt
+        },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: '请识别这瓶酒的详细信息' },
+            { type: 'image_url', image_url: { url: imageDataUrl } }
+          ]
+        }
+      ],
+      temperature: 0.1,
+      max_tokens: 800
+    };
+
+    var proxyUrl = CORS_PROXY_URL + encodeURIComponent(DEEPSEEK_API_URL);
+    console.log('使用 CORS 代理:', proxyUrl);
+
+    var resp = await fetch(proxyUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -80,18 +177,27 @@ const AIHelper = (function() {
       body: JSON.stringify(payload)
     });
 
+    console.log('代理响应状态:', resp.status);
+
     if (!resp.ok) {
       var errText = await resp.text();
-      throw new Error('DeepSeek API 错误(' + resp.status + '): ' + errText.substring(0, 200));
+      console.error('代理 API 错误:', errText);
+      throw new Error('MiMo API 错误(' + resp.status + '): ' + errText.substring(0, 200));
     }
 
     var data = await resp.json();
+    console.log('代理 API 返回:', JSON.stringify(data).substring(0, 500));
+
     var content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-    if (!content) throw new Error('DeepSeek 返回为空');
+    if (!content) throw new Error('MiMo 返回为空');
+
+    console.log('代理识别内容:', content.substring(0, 300));
 
     var jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('DeepSeek 返回格式异常: ' + content.substring(0, 200));
+    if (!jsonMatch) throw new Error('MiMo 返回格式异常: ' + content.substring(0, 200));
     var wineInfo = JSON.parse(jsonMatch[0]);
+
+    console.log('代理解析结果:', wineInfo);
 
     if (wineInfo.error) throw new Error(wineInfo.error);
 
