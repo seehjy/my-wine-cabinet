@@ -857,7 +857,7 @@ const AIHelper = (function() {
         
         console.log('recognizeWine 返回 match:', matchData.brand, matchData.name, matchData.type);
         
-        return {
+        var visionResultObj = {
           image: compressed.dataUrl,
           text: '',
           match: matchData,
@@ -868,6 +868,10 @@ const AIHelper = (function() {
           visionUsed: true,
           fileNameHint: fileNameHint
         };
+        
+        if (progressCb) progressCb({ stage: 'done', percent: 100, message: '识别成功！' });
+        console.log('视觉识别成功，直接返回，跳过OCR');
+        return visionResultObj;
       }
     } catch(e) {
       console.warn('Vision API failed, fallback to OCR:', e);
