@@ -393,6 +393,10 @@ const AIHelper = (function() {
 
     if (wineInfo.error) throw new Error(wineInfo.error);
 
+    // 调用 AI 补充详细信息（香型、度数、产地等）
+    wineInfo = await enrichWineInfo(wineInfo, progressCb);
+    console.log('补充信息后的最终结果:', wineInfo);
+
     if (progressCb) progressCb({ stage: 'vision_done', percent: 90, message: '识别完成' });
     return wineInfo;
   }
@@ -567,6 +571,96 @@ const AIHelper = (function() {
     }
 
     return info;
+  }
+
+  // ============ AI 补充酒品详细信息（香型、度数、产地等）============
+  async function enrichWineInfo(wineInfo, progressCb) {
+    if (!wineInfo || (!wineInfo.brand && !wineInfo.name)) {
+      return wineInfo;
+    }
+
+    var query = (wineInfo.brand || '') + ' ' + (wineInfo.name || '');
+    console.log('AI 补充信息查询:', query);
+
+    if (progressCb) progressCb({ stage: 'enrich', percent: 60, message: '正在查询酒款详细信息...' });
+
+    var prompt = '请回答以下酒款的详细信息，只返回 JSON 格式，不要任何解释：\n' +
+      '品牌：' + (wineInfo.brand || '未知') + '\n' +
+      '酒名：' + (wineInfo.name || '未知') + '\n\n' +
+      '请返回以下字段（如果不确定请留空）：\n' +
+      '{\n' +
+      '  "type": "酒类大类（白酒/洋酒/红酒/啤酒/黄酒/清酒）",\n' +
+      '  "detailType": "具体类型（如酱香型、浓香型、威士忌、干红等）",\n' +
+      '  "degree": 度数（数字，如52、40、12），\n' +
+      '  "capacity": 容量毫升数（数字，如500、750、700），\n' +
+      '  "agingYears": 陈酿年数（数字，如10、12、18），\n' +
+      '  "origin": "产地（如贵州、四川、苏格兰、法国）",\n' +
+      '  "description": "简短描述（一句话）"\n' +
+      '}\n\n' +
+      '示例：\n' +
+      '茅台 飞天 -> {"type":"白酒","detailType":"酱香型","degree":53,"capacity":500,"agingYears":null,"origin":"贵州","description":"茅台飞天是中国最著名的酱香型白酒"}\n' +
+      '五粮液 -> {"type":"白酒","detailType":"浓香型","degree":52,"capacity":500,"agingYears":null,"origin":"四川宜宾","description":"五粮液是浓香型白酒代表"}\n' +
+      '尊尼获加 黑牌 -> {"type":"洋酒","detailType":"威士忌","degree":40,"capacity":700,"agingYears":12,"origin":"苏格兰","description":"尊尼获加黑牌是调和威士忌"}';
+
+    try {
+      var resp = await fetch(DEEPSEEK_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + MIMO_API_KEY
+        },
+        body: JSON.stringify({
+          model: DEEPSEEK_MODEL,
+          messages: [
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.3,
+          max_tokens: 500
+        }),
+        signal: AbortSignal.timeout(15000)
+      });
+
+      if (!resp.ok) {
+        console.warn('AI 补充信息请求失败:', resp.status);
+        return wineInfo;
+      }
+
+      var data = await resp.json();
+      var content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+      console.log('AI 补充信息返回:', content);
+
+      if (!content) return wineInfo;
+
+      // 提取 JSON
+      var enrichedInfo = null;
+      try {
+        // 直接解析
+        enrichedInfo = JSON.parse(content);
+      } catch(e) {
+        // 从文本中提取
+        var jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try { enrichedInfo = JSON.parse(jsonMatch[0]); } catch(e2) {}
+        }
+      }
+
+      if (enrichedInfo) {
+        console.log('AI 补充信息解析成功:', enrichedInfo);
+        // 合并信息（优先使用 AI 返回的详细信息）
+        if (enrichedInfo.type && !wineInfo.type) wineInfo.type = enrichedInfo.type;
+        if (enrichedInfo.detailType) wineInfo.detailType = enrichedInfo.detailType;
+        if (enrichedInfo.degree && !wineInfo.degree) wineInfo.degree = enrichedInfo.degree;
+        if (enrichedInfo.capacity && !wineInfo.capacity) wineInfo.capacity = enrichedInfo.capacity;
+        if (enrichedInfo.agingYears && !wineInfo.agingYears) wineInfo.agingYears = enrichedInfo.agingYears;
+        if (enrichedInfo.origin && !wineInfo.origin) wineInfo.origin = enrichedInfo.origin;
+        if (enrichedInfo.description) wineInfo.description = enrichedInfo.description;
+      }
+
+    } catch(e) {
+      console.warn('AI 补充信息失败:', e.message);
+    }
+
+    return wineInfo;
   }
 
   // ============ 商品图搜索（带重试和降级）============
@@ -1047,32 +1141,50 @@ const AIHelper = (function() {
     var cascadeSubInput = formEl.querySelector('#subCategory, [name="subCategory"]');
     var cascadeDetailInput = formEl.querySelector('#detailType, [name="detailType"]');
     var cascadeTypeInput = formEl.querySelector('#type, [name="type"]');
-    if (cascadeCategoryInput && wineData.type) {
-      var typeStr = wineData.type;
+
+    // 优先使用 AI 返回的 detailType（如酱香型、浓香型、威士忌等）
+    var detailTypeStr = wineData.detailType || '';
+    var typeStr = wineData.type || '';
+
+    if (cascadeCategoryInput) {
       var baijiuXiangMap = {
-        '酱香': '酱香型', '浓香': '浓香型', '清香': '清香型', '兼香': '兼香型',
-        '米香': '米香型', '凤香': '凤香型', '芝麻香': '芝麻香型', '特香': '特香型',
-        '老白干': '老白干香型', '馥郁香': '馥郁香型', '董香': '药香型'
+        '酱香型': '酱香型', '浓香型': '浓香型', '清香型': '清香型', '兼香型': '兼香型',
+        '米香型': '米香型', '凤香型': '凤香型', '芝麻香型': '芝麻香型', '特香型': '特香型',
+        '老白干香型': '老白干香型', '馥郁香型': '馥郁香型', '药香型': '药香型',
+        '酱香': '酱香型', '浓香': '浓香型', '清香': '清香型', '兼香': '兼香型'
       };
 
-      if (baijiuXiangMap[typeStr]) {
+      var yangjiuSubMap = {
+        '威士忌': '威士忌', '白兰地': '白兰地', '伏特加': '伏特加',
+        '朗姆酒': '朗姆酒', '金酒': '金酒', '龙舌兰': '龙舌兰'
+      };
+
+      // 优先使用 detailType 判断
+      if (baijiuXiangMap[detailTypeStr]) {
         cascadeCategoryInput.value = '白酒';
-        if (cascadeSubInput) cascadeSubInput.value = baijiuXiangMap[typeStr];
-        if (cascadeTypeInput) cascadeTypeInput.value = typeStr;
-      } else if (typeStr === '白酒') {
+        if (cascadeSubInput) cascadeSubInput.value = baijiuXiangMap[detailTypeStr];
+        if (cascadeTypeInput) cascadeTypeInput.value = detailTypeStr.replace('型', '');
+        if (cascadeDetailInput) cascadeDetailInput.value = baijiuXiangMap[detailTypeStr];
+      } else if (yangjiuSubMap[detailTypeStr]) {
+        cascadeCategoryInput.value = '洋酒';
+        if (cascadeSubInput) cascadeSubInput.value = yangjiuSubMap[detailTypeStr];
+        if (cascadeTypeInput) cascadeTypeInput.value = yangjiuSubMap[detailTypeStr];
+        if (cascadeDetailInput) cascadeDetailInput.value = yangjiuSubMap[detailTypeStr];
+      } else if (detailTypeStr === '干红' || detailTypeStr === '红葡萄酒') {
+        cascadeCategoryInput.value = '葡萄酒';
+        if (cascadeTypeInput) cascadeTypeInput.value = '红葡萄酒';
+        if (cascadeDetailInput) cascadeDetailInput.value = '红葡萄酒';
+      } else if (detailTypeStr === '干白' || detailTypeStr === '白葡萄酒') {
+        cascadeCategoryInput.value = '葡萄酒';
+        if (cascadeTypeInput) cascadeTypeInput.value = '白葡萄酒';
+        if (cascadeDetailInput) cascadeDetailInput.value = '白葡萄酒';
+      } else if (typeStr === '白酒' && !detailTypeStr) {
         cascadeCategoryInput.value = '白酒';
         if (cascadeTypeInput) cascadeTypeInput.value = '白酒';
-      } else if (typeStr === '洋酒' || typeStr === '威士忌' || typeStr === '白兰地' || typeStr === '伏特加' || typeStr === '朗姆酒' || typeStr === '朗姆' || typeStr === '金酒' || typeStr === '龙舌兰') {
+      } else if (typeStr === '洋酒' && !detailTypeStr) {
         cascadeCategoryInput.value = '洋酒';
-        var subMap = {
-          '威士忌': '威士忌', '白兰地': '白兰地', '伏特加': '伏特加',
-          '朗姆酒': '朗姆酒', '朗姆': '朗姆酒', '金酒': '金酒', '龙舌兰': '龙舌兰'
-        };
-        if (subMap[typeStr] && cascadeSubInput) {
-          cascadeSubInput.value = subMap[typeStr];
-        }
-        if (cascadeTypeInput) cascadeTypeInput.value = subMap[typeStr] || '洋酒';
-      } else if (typeStr === '红酒' || typeStr === '葡萄酒' || typeStr === '干红' || typeStr === '干白') {
+        if (cascadeTypeInput) cascadeTypeInput.value = '洋酒';
+      } else if (typeStr === '红酒' || typeStr === '葡萄酒') {
         cascadeCategoryInput.value = '葡萄酒';
         if (cascadeTypeInput) cascadeTypeInput.value = '红葡萄酒';
       } else if (typeStr === '啤酒') {
@@ -1084,7 +1196,7 @@ const AIHelper = (function() {
       } else if (typeStr === '清酒') {
         cascadeCategoryInput.value = '其他';
         if (cascadeTypeInput) cascadeTypeInput.value = '清酒';
-      } else {
+      } else if (typeStr) {
         cascadeCategoryInput.value = '其他';
         if (cascadeTypeInput) cascadeTypeInput.value = typeStr;
       }
