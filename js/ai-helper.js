@@ -846,12 +846,15 @@ const AIHelper = (function() {
         var matchData = {
           brand: wineInfo.brand || '',
           name: wineInfo.name || '',
+          fullName: (wineInfo.brand || '') + ' ' + (wineInfo.name || ''),
           type: wineInfo.type || '其他',
           degree: wineInfo.degree || null,
           capacity: wineInfo.capacity || null,
           agingYears: wineInfo.agingYears || null,
           productionYear: wineInfo.productionYear || null,
           origin: wineInfo.origin || '',
+          keywords: [],
+          color: '#8B6914',
           confidence: 90
         };
         
