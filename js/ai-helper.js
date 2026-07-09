@@ -230,6 +230,10 @@ const AIHelper = (function() {
 
       if (wineInfo.error) throw new Error(wineInfo.error);
 
+      // 调用 AI 补充详细信息（香型、度数、产地等）
+      wineInfo = await enrichWineInfo(wineInfo, progressCb);
+      console.log('补充信息后的最终结果:', wineInfo);
+
       if (progressCb) progressCb({ stage: 'vision_done', percent: 90, message: '识别完成' });
       return wineInfo;
     } catch(e) {
@@ -603,25 +607,59 @@ const AIHelper = (function() {
       '尊尼获加 黑牌 -> {"type":"洋酒","detailType":"威士忌","degree":40,"capacity":700,"agingYears":12,"origin":"苏格兰","description":"尊尼获加黑牌是调和威士忌"}';
 
     try {
-      var proxyUrl = CORS_PROXY_URL + encodeURIComponent(DEEPSEEK_API_URL);
-      console.log('AI 补充信息使用 CORS 代理:', proxyUrl);
+      // 先尝试直接调用（如果视觉识别直接成功，说明没有 CORS 问题）
+      var resp = null;
+      var directSuccess = false;
+      
+      try {
+        console.log('AI 补充信息尝试直接调用...');
+        resp = await fetch(DEEPSEEK_API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + getApiKey()
+          },
+          body: JSON.stringify({
+            model: DEEPSEEK_MODEL,
+            messages: [
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0.3,
+            max_tokens: 500
+          }),
+          signal: AbortSignal.timeout(12000)
+        });
+        directSuccess = true;
+      } catch(directErr) {
+        console.warn('AI 补充信息直接调用失败，尝试代理:', directErr.message);
+      }
 
-      var resp = await fetch(proxyUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + getApiKey()
-        },
-        body: JSON.stringify({
-          model: DEEPSEEK_MODEL,
-          messages: [
-            { role: 'user', content: prompt }
-          ],
-          temperature: 0.3,
-          max_tokens: 500
-        }),
-        signal: AbortSignal.timeout(15000)
-      });
+      // 如果直接调用失败，使用 CORS 代理
+      if (!directSuccess || !resp || !resp.ok) {
+        var proxyUrl = CORS_PROXY_URL + encodeURIComponent(DEEPSEEK_API_URL);
+        console.log('AI 补充信息使用 CORS 代理:', proxyUrl);
+        resp = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + getApiKey()
+          },
+          body: JSON.stringify({
+            model: DEEPSEEK_MODEL,
+            messages: [
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0.3,
+            max_tokens: 500
+          }),
+          signal: AbortSignal.timeout(15000)
+        });
+      }
+
+      if (!resp) {
+        console.warn('AI 补充信息: 无响应');
+        return wineInfo;
+      }
 
       if (!resp.ok) {
         console.warn('AI 补充信息请求失败:', resp.status);
@@ -630,6 +668,9 @@ const AIHelper = (function() {
 
       var data = await resp.json();
       var content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+      var reasoningContent = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.reasoning_content;
+      // MiMo API 可能返回内容在 reasoning_content 字段
+      content = content || reasoningContent;
       console.log('AI 补充信息返回:', content);
 
       if (!content) return wineInfo;
@@ -945,11 +986,13 @@ const AIHelper = (function() {
           name: wineInfo.name || '',
           fullName: (wineInfo.brand || '') + ' ' + (wineInfo.name || ''),
           type: wineInfo.type || '其他',
+          detailType: wineInfo.detailType || '',
           degree: wineInfo.degree || null,
           capacity: wineInfo.capacity || null,
           agingYears: wineInfo.agingYears || null,
           productionYear: wineInfo.productionYear || null,
           origin: wineInfo.origin || '',
+          description: wineInfo.description || '',
           keywords: [],
           color: '#8B6914',
           confidence: 90
