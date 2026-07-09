@@ -675,29 +675,41 @@ const AIHelper = (function() {
 
       if (!content) return wineInfo;
 
-      // 提取 JSON
+      // 提取 JSON（支持多种格式）
       var enrichedInfo = null;
       try {
-        // 直接解析
         enrichedInfo = JSON.parse(content);
       } catch(e) {
-        // 从文本中提取
+        // 从文本中提取第一个 JSON 对象
         var jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           try { enrichedInfo = JSON.parse(jsonMatch[0]); } catch(e2) {}
+        }
+        // 如果还是失败，尝试提取 ```json 代码块
+        if (!enrichedInfo) {
+          var codeBlockMatch = content.match(/```(?:json)?\s*\n([\s\S]*?)\n```/i);
+          if (codeBlockMatch) {
+            try { enrichedInfo = JSON.parse(codeBlockMatch[1].trim()); } catch(e3) {}
+          }
         }
       }
 
       if (enrichedInfo) {
         console.log('AI 补充信息解析成功:', enrichedInfo);
-        // 合并信息（优先使用 AI 返回的详细信息）
-        if (enrichedInfo.type && !wineInfo.type) wineInfo.type = enrichedInfo.type;
+        // 合并信息（detailType 总是更新，其他字段只在为空时更新）
         if (enrichedInfo.detailType) wineInfo.detailType = enrichedInfo.detailType;
+        if (enrichedInfo.type && !wineInfo.type) wineInfo.type = enrichedInfo.type;
+        // 如果 type 是大类但 detailType 更具体，确保 type 也有值
+        if (enrichedInfo.type && wineInfo.type && wineInfo.type === enrichedInfo.type) {
+          // 类型一致，不需要修改
+        }
         if (enrichedInfo.degree && !wineInfo.degree) wineInfo.degree = enrichedInfo.degree;
         if (enrichedInfo.capacity && !wineInfo.capacity) wineInfo.capacity = enrichedInfo.capacity;
         if (enrichedInfo.agingYears && !wineInfo.agingYears) wineInfo.agingYears = enrichedInfo.agingYears;
         if (enrichedInfo.origin && !wineInfo.origin) wineInfo.origin = enrichedInfo.origin;
         if (enrichedInfo.description) wineInfo.description = enrichedInfo.description;
+      } else {
+        console.warn('AI 补充信息无法解析 JSON:', content);
       }
 
     } catch(e) {
@@ -1205,49 +1217,76 @@ const AIHelper = (function() {
         '朗姆酒': '朗姆酒', '金酒': '金酒', '龙舌兰': '龙舌兰'
       };
 
-      // 优先使用 detailType 判断
+      var resultCat = '';
+      var resultSub = '';
+      var resultDetail = '';
+
       if (baijiuXiangMap[detailTypeStr]) {
+        resultCat = '白酒';
+        resultSub = baijiuXiangMap[detailTypeStr];
+        resultDetail = '';
         cascadeCategoryInput.value = '白酒';
         if (cascadeSubInput) cascadeSubInput.value = baijiuXiangMap[detailTypeStr];
         if (cascadeTypeInput) cascadeTypeInput.value = detailTypeStr.replace('型', '');
-        if (cascadeDetailInput) cascadeDetailInput.value = baijiuXiangMap[detailTypeStr];
+        if (cascadeDetailInput) cascadeDetailInput.value = '';
       } else if (yangjiuSubMap[detailTypeStr]) {
+        resultCat = '洋酒';
+        resultSub = yangjiuSubMap[detailTypeStr];
+        resultDetail = '';
         cascadeCategoryInput.value = '洋酒';
         if (cascadeSubInput) cascadeSubInput.value = yangjiuSubMap[detailTypeStr];
         if (cascadeTypeInput) cascadeTypeInput.value = yangjiuSubMap[detailTypeStr];
-        if (cascadeDetailInput) cascadeDetailInput.value = yangjiuSubMap[detailTypeStr];
+        if (cascadeDetailInput) cascadeDetailInput.value = '';
       } else if (detailTypeStr === '干红' || detailTypeStr === '红葡萄酒') {
+        resultCat = '葡萄酒';
+        resultSub = '红葡萄酒';
+        resultDetail = '';
         cascadeCategoryInput.value = '葡萄酒';
         if (cascadeTypeInput) cascadeTypeInput.value = '红葡萄酒';
-        if (cascadeDetailInput) cascadeDetailInput.value = '红葡萄酒';
+        if (cascadeDetailInput) cascadeDetailInput.value = '';
       } else if (detailTypeStr === '干白' || detailTypeStr === '白葡萄酒') {
+        resultCat = '葡萄酒';
+        resultSub = '白葡萄酒';
+        resultDetail = '';
         cascadeCategoryInput.value = '葡萄酒';
         if (cascadeTypeInput) cascadeTypeInput.value = '白葡萄酒';
-        if (cascadeDetailInput) cascadeDetailInput.value = '白葡萄酒';
+        if (cascadeDetailInput) cascadeDetailInput.value = '';
       } else if (typeStr === '白酒' && !detailTypeStr) {
+        resultCat = '白酒';
         cascadeCategoryInput.value = '白酒';
         if (cascadeTypeInput) cascadeTypeInput.value = '白酒';
       } else if (typeStr === '洋酒' && !detailTypeStr) {
+        resultCat = '洋酒';
         cascadeCategoryInput.value = '洋酒';
         if (cascadeTypeInput) cascadeTypeInput.value = '洋酒';
       } else if (typeStr === '红酒' || typeStr === '葡萄酒') {
+        resultCat = '葡萄酒';
+        resultSub = '红葡萄酒';
         cascadeCategoryInput.value = '葡萄酒';
         if (cascadeTypeInput) cascadeTypeInput.value = '红葡萄酒';
       } else if (typeStr === '啤酒') {
+        resultCat = '啤酒';
         cascadeCategoryInput.value = '啤酒';
         if (cascadeTypeInput) cascadeTypeInput.value = '啤酒';
       } else if (typeStr === '黄酒') {
+        resultCat = '黄酒';
         cascadeCategoryInput.value = '黄酒';
         if (cascadeTypeInput) cascadeTypeInput.value = '黄酒';
       } else if (typeStr === '清酒') {
+        resultCat = '其他';
+        resultSub = '清酒';
         cascadeCategoryInput.value = '其他';
         if (cascadeTypeInput) cascadeTypeInput.value = '清酒';
       } else if (typeStr) {
+        resultCat = '其他';
+        resultSub = typeStr;
         cascadeCategoryInput.value = '其他';
         if (cascadeTypeInput) cascadeTypeInput.value = typeStr;
       }
 
-      if (window.setCascadeFromType) {
+      if (window.showCascadeResultDirect && resultCat) {
+        window.showCascadeResultDirect(resultCat, resultSub, resultDetail);
+      } else if (window.setCascadeFromType) {
         window.setCascadeFromType(cascadeTypeInput.value || cascadeCategoryInput.value);
       }
     }
