@@ -555,7 +555,7 @@
   <script src="/my-wine-cabinet/js/ui.js"></script>
   <script src="/my-wine-cabinet/js/onboarding.js?v=20260702f"></script>
   <script src="/my-wine-cabinet/js/wine-db.js?v=20260702f"></script>
-  <script src="/my-wine-cabinet/js/ai-helper.js?v=20260708n"></script>
+  <script src="/my-wine-cabinet/js/ai-helper.js?v=20260709b"></script>
   <script>
     window.handleBackFromSupplement = function() {
       var urlParams = new URLSearchParams(window.location.search);
@@ -1556,6 +1556,31 @@
       }
 
       window.setCascadeFromType = setCascadeFromType;
+
+      window.showCascadeResultDirect = function(cat, sub, detail) {
+        var result = document.getElementById('cascade-result');
+        var level1 = document.getElementById('cascade-level1');
+        var level2 = document.getElementById('cascade-level2');
+        var level3 = document.getElementById('cascade-level3');
+        var parts = [cat];
+        if (sub) parts.push(sub);
+        if (detail) parts.push(detail);
+        result.innerHTML = '<span style="color: var(--color-primary); font-weight: 600;">' + parts.join(' › ') + '</span>' +
+          '<button type="button" onclick="resetCascade()" style="background:none;border:none;color:var(--color-text-tertiary);cursor:pointer;font-size:var(--text-sm);">修改</button>';
+        result.style.display = 'flex';
+        level1.style.display = 'none';
+        level2.style.display = 'none';
+        level3.style.display = 'none';
+        document.getElementById('category').value = cat || '';
+        document.getElementById('subCategory').value = sub || '';
+        document.getElementById('detailType').value = detail || '';
+        var typeVal = detail || sub || cat || '';
+        var typeInput = document.getElementById('type');
+        if (typeInput) typeInput.value = typeVal;
+        if (window._cascadeUpdateYearField) {
+          window._cascadeUpdateYearField(detail || sub || cat);
+        }
+      };
 
       window.resetCascade = function() {
         var level1 = document.getElementById('cascade-level1');
